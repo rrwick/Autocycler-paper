@@ -1,4 +1,4 @@
-These are the commands I ran for conducting the accuracy test in the Autocycler paper. The purpose was to create assemblies with individual long-read assemblers and with Autocycler, and to quantify the number of errors in each assembly.
+These are the commands I ran for conducting assembler comparison in the Autocycler paper.
 
 
 
@@ -21,11 +21,11 @@ sbatch --job-name=dorado --time=2:00:00 --ntasks=1 --mem=64000 --cpus-per-task=8
 ```
 
 I'm going to use these five samples from the run, because they are deep, each from a different genus, and (as established in a previous analysis) I know they are uncomplicated (no tricky assembly issues, e.g. heterogeneity):
-* AUSMDU00021551, barcode25, Enterobacter hormaechei
-* AUSMDU00018770, barcode57, Klebsiella pneumoniae
-* AUSMDU00097349, barcode05, Listeria welshimeri
-* AUSMDU00026122, barcode63, Providencia rettgeri
-* AUSMDU00009397, barcode75, Shigella flexneri
+* AUSMDU00021551, barcode25, _Enterobacter hormaechei_
+* AUSMDU00018770, barcode57, _Klebsiella pneumoniae_
+* AUSMDU00097349, barcode05, _Listeria welshimeri_
+* AUSMDU00026122, barcode63, _Providencia rettgeri_
+* AUSMDU00009397, barcode75, _Shigella flexneri_
 
 
 
@@ -36,8 +36,8 @@ From this point onward, I did my analysis on the MDU PHL servers.
 
 Create directories:
 ```bash
-mkdir 2025-04_Autocycler_paper/accuracy_test
-cd 2025-04_Autocycler_paper/accuracy_test
+mkdir 2025-04_Autocycler_paper
+cd 2025-04_Autocycler_paper
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
     mkdir "$s"
     mkdir "$s"/reads
@@ -47,33 +47,33 @@ done
 
 Copy ONT reads from Spartan and combine into a single file per sample:
 ```bash
-cd ~/2025-04_Autocycler_paper/accuracy_test/Enterobacter_hormaechei/reads
+cd ~/2025-04_Autocycler_paper/Enterobacter_hormaechei/reads
 scp spartan:/data/scratch/projects/punim1894/O2024-029/reads/"*barcode25.bam" .
 samtools cat -o nanopore.bam *barcode*.bam
 
-cd ~/2025-04_Autocycler_paper/accuracy_test/Klebsiella_pneumoniae/reads
+cd ~/2025-04_Autocycler_paper/Klebsiella_pneumoniae/reads
 scp spartan:/data/scratch/projects/punim1894/O2024-029/reads/"*barcode57.bam" .
 samtools cat -o nanopore.bam *barcode*.bam
 
-cd ~/2025-04_Autocycler_paper/accuracy_test/Listeria_welshimeri/reads
+cd ~/2025-04_Autocycler_paper/Listeria_welshimeri/reads
 scp spartan:/data/scratch/projects/punim1894/O2024-029/reads/"*barcode05.bam" .
 samtools cat -o nanopore.bam *barcode*.bam
 
-cd ~/2025-04_Autocycler_paper/accuracy_test/Providencia_rettgeri/reads
+cd ~/2025-04_Autocycler_paper/Providencia_rettgeri/reads
 scp spartan:/data/scratch/projects/punim1894/O2024-029/reads/"*barcode63.bam" .
 samtools cat -o nanopore.bam *barcode*.bam
 
-cd ~/2025-04_Autocycler_paper/accuracy_test/Shigella_flexneri/reads
+cd ~/2025-04_Autocycler_paper/Shigella_flexneri/reads
 scp spartan:/data/scratch/projects/punim1894/O2024-029/reads/"*barcode75.bam" .
 samtools cat -o nanopore.bam *barcode*.bam
 
-rm ~/2025-04_Autocycler_paper/accuracy_test/*/reads/*barcode*.bam
+rm ~/2025-04_Autocycler_paper/*/reads/*barcode*.bam
 ```
 
 Basic ONT QC (discard reads with a mean qscore <10) and convert to FASTQ:
 ```bash
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    cd ~/2025-04_Autocycler_paper/accuracy_test/"$s"/reads_qc
+    cd ~/2025-04_Autocycler_paper/"$s"/reads_qc
     samtools fastq -T '*' ../reads/nanopore.bam | tr '\t' ' ' | paste - - - - | awk -F'\t' '{split($1, a, " "); for (i in a) {if (a[i] ~ /^qs:f:/) {split(a[i], b, ":"); if (b[3] >= 10.0) print $0}}}' | sort | tr '\t' '\n' | pigz -p16 > nanopore.fastq.gz
 done
 ```
@@ -81,44 +81,44 @@ The above command also sorts the reads by name, which serves to randomise them (
 
 Make a 50x-depth ONT read set (mainly for the Unicycler assembly so it doesn't take forever):
 ```bash
-cd ~/2025-04_Autocycler_paper/accuracy_test/Enterobacter_hormaechei/reads_qc
+cd ~/2025-04_Autocycler_paper/Enterobacter_hormaechei/reads_qc
 filtlong --target_bases 269237350 nanopore.fastq.gz | pigz -p16 > nanopore_50x.fastq.gz
 
-cd ~/2025-04_Autocycler_paper/accuracy_test/Klebsiella_pneumoniae/reads_qc
+cd ~/2025-04_Autocycler_paper/Klebsiella_pneumoniae/reads_qc
 filtlong --target_bases 299509800 nanopore.fastq.gz | pigz -p16 > nanopore_50x.fastq.gz
 
-cd ~/2025-04_Autocycler_paper/accuracy_test/Listeria_welshimeri/reads_qc
+cd ~/2025-04_Autocycler_paper/Listeria_welshimeri/reads_qc
 filtlong --target_bases 148627250 nanopore.fastq.gz | pigz -p16 > nanopore_50x.fastq.gz
 
-cd ~/2025-04_Autocycler_paper/accuracy_test/Providencia_rettgeri/reads_qc
+cd ~/2025-04_Autocycler_paper/Providencia_rettgeri/reads_qc
 filtlong --target_bases 223290300 nanopore.fastq.gz | pigz -p16 > nanopore_50x.fastq.gz
 
-cd ~/2025-04_Autocycler_paper/accuracy_test/Shigella_flexneri/reads_qc
+cd ~/2025-04_Autocycler_paper/Shigella_flexneri/reads_qc
 filtlong --target_bases 241424350 nanopore.fastq.gz | pigz -p16 > nanopore_50x.fastq.gz
 ```
 
 Copy Illumina reads:
 ```bash
-cd ~/2025-04_Autocycler_paper/accuracy_test/Enterobacter_hormaechei/reads
+cd ~/2025-04_Autocycler_paper/Enterobacter_hormaechei/reads
 cp ~/2024-06_new_assembler_benchmark/AUSMDU00021551/reads/illumina* .
 
-cd ~/2025-04_Autocycler_paper/accuracy_test/Klebsiella_pneumoniae/reads
+cd ~/2025-04_Autocycler_paper/Klebsiella_pneumoniae/reads
 cp ~/2024-06_new_assembler_benchmark/AUSMDU00018770/reads/illumina* .
 
-cd ~/2025-04_Autocycler_paper/accuracy_test/Listeria_welshimeri/reads
+cd ~/2025-04_Autocycler_paper/Listeria_welshimeri/reads
 cp ~/2024-06_new_assembler_benchmark/AUSMDU00097349/reads/illumina* .
 
-cd ~/2025-04_Autocycler_paper/accuracy_test/Providencia_rettgeri/reads
+cd ~/2025-04_Autocycler_paper/Providencia_rettgeri/reads
 cp ~/2024-06_new_assembler_benchmark/AUSMDU00026122/reads/illumina* .
 
-cd ~/2025-04_Autocycler_paper/accuracy_test/Shigella_flexneri/reads
+cd ~/2025-04_Autocycler_paper/Shigella_flexneri/reads
 cp ~/2024-06_new_assembler_benchmark/AUSMDU00009397/reads/illumina* .
 ```
 
 Illumina read QC with fastp:
 ```bash
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    cd ~/2025-04_Autocycler_paper/accuracy_test/"$s"/reads_qc
+    cd ~/2025-04_Autocycler_paper/"$s"/reads_qc
     fastp --in1 ../reads/illumina_1.fastq.gz --in2 ../reads/illumina_2.fastq.gz --out1 illumina_1.fastq.gz --out2 illumina_2.fastq.gz --unpaired1 illumina_u.fastq.gz --unpaired2 illumina_u.fastq.gz
 done
 ```
@@ -132,7 +132,7 @@ To create the reference sequence, I'll use my previously established best practi
 
 ```bash
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    cd ~/2025-04_Autocycler_paper/accuracy_test/"$s"
+    cd ~/2025-04_Autocycler_paper/"$s"
     mkdir reference_assembly
 done
 ```
@@ -140,13 +140,13 @@ done
 Unicycler hybrid:
 ```bash
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    cd ~/2025-04_Autocycler_paper/accuracy_test/"$s"/reference_assembly
+    cd ~/2025-04_Autocycler_paper/"$s"/reference_assembly
     if [ -f unicycler_illumina/assembly.gfa ]; then continue; fi
     unicycler -1 ../reads_qc/illumina_1.fastq.gz -2 ../reads_qc/illumina_2.fastq.gz -l ../reads_qc/nanopore_50x.fastq.gz -o unicycler -t 64
 done
 ```
 
-These all completed except for the Shigella genome, where some small plasmids remained tangled together. This was due to my use of Filtlong which left no reads below 15 kbp, so Unicycler could separate those plasmids. But they were easy to separate manually using depth.
+These all completed except for the _Shigella_ genome, where some small plasmids remained tangled together. This was due to my use of Filtlong which left no reads below 15 kbp, so Unicycler couldn't separate those plasmids. But they were easy to separate manually using depth.
 
 Trycycler input assemblies, following the 'extra-thorough' instructions on its wiki:
 ```bash
@@ -160,7 +160,7 @@ genome_sizes["Shigella_flexneri"]=4828487
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
     genome_size=$genome_sizes["$s"]
     
-    cd ~/2025-04_Autocycler_paper/accuracy_test/"$s"
+    cd ~/2025-04_Autocycler_paper/"$s"
     mkdir reference_assembly
     cd reference_assembly
 
@@ -229,7 +229,7 @@ done
 Trycycler cluster:
 ```bash
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    cd ~/2025-04_Autocycler_paper/accuracy_test/"$s"/reference_assembly
+    cd ~/2025-04_Autocycler_paper/"$s"/reference_assembly
     trycycler cluster --assemblies assemblies/*.fasta --reads ../reads_qc/nanopore.fastq.gz --out_dir trycycler --threads 64
 done
 ```
@@ -244,7 +244,7 @@ I used the Unicycler assemblies (which are good with small plasmids) to help gui
 And the remaining Trycycler steps:
 ```bash
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    cd ~/2025-04_Autocycler_paper/accuracy_test/"$s"/reference_assembly
+    cd ~/2025-04_Autocycler_paper/"$s"/reference_assembly
     for c in trycycler/cluster_*; do trycycler msa --threads 64 --cluster_dir "$c"; done
     trycycler partition --reads ../reads_qc/nanopore.fastq.gz --cluster_dirs trycycler/cluster_* --threads 96
     for c in trycycler/cluster_*; do trycycler consensus --cluster_dir "$c"; done
@@ -254,7 +254,7 @@ done
 
 Clean up:
 ```bash
-cd ~/2025-04_Autocycler_paper/accuracy_test
+cd ~/2025-04_Autocycler_paper
 rm -r */reference_assembly/read_subsets
 rm -r */reference_assembly/assemblies
 ```
@@ -262,7 +262,7 @@ rm -r */reference_assembly/assemblies
 Medaka on each cluster:
 ```bash
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    cd ~/2025-04_Autocycler_paper/accuracy_test/"$s"/reference_assembly
+    cd ~/2025-04_Autocycler_paper/"$s"/reference_assembly
     for c in trycycler/cluster_*; do
         medaka_consensus -i "$c"/4_reads.fastq -d "$c"/7_final_consensus.fasta -o "$c"/medaka -m r1041_e82_400bps_bacterial_methylation -t 12
         mv "$c"/medaka/consensus.fasta "$c"/8_medaka.fasta
@@ -276,7 +276,7 @@ done
 Short-read polishing:
 ```bash
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    cd ~/2025-04_Autocycler_paper/accuracy_test/"$s"/reference_assembly
+    cd ~/2025-04_Autocycler_paper/"$s"/reference_assembly
     
     bwa index trycycler_medaka.fasta
     bwa mem -t 24 -a trycycler_medaka.fasta ../reads_qc/illumina_1.fastq.gz > alignments_1.sam
@@ -294,18 +294,18 @@ done
 Tally up polishing changes:
 ```bash
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    cd ~/2025-04_Autocycler_paper/accuracy_test/"$s"/reference_assembly
+    cd ~/2025-04_Autocycler_paper/"$s"/reference_assembly
     compare_assemblies.py --aligner edlib trycycler.fasta trycycler_medaka.fasta 2> /dev/null | grep -o "\*" | wc -l | tr '\n' '\t'
     compare_assemblies.py --aligner edlib trycycler_medaka.fasta trycycler_medaka_polypolish.fasta 2> /dev/null | grep -o "\*" | wc -l | tr '\n' '\t'
     compare_assemblies.py --aligner edlib trycycler_medaka_polypolish.fasta trycycler_medaka_polypolish_pypolca.fasta 2> /dev/null | grep -o "\*" | wc -l
 done
 ```
-Medaka's usefulness was questionable. For the Enterobacter and Listeria genomes, Medaka made one change which Polypolish undid, i.e. the pre-Medaka Trycycler assembly seems to be error-free. And for the Shigella genome, Medaka made multiple changes which Polypolish undid. For the other two (Klebsiella and Providencia), Medaka made one change which Polypolish kept.
+Medaka's usefulness was questionable. For the _Enterobacter_ and _Listeria_ genomes, Medaka made one change which Polypolish undid, i.e. the pre-Medaka Trycycler assembly seems to be error-free. And for the _Shigella_ genome, Medaka made multiple changes which Polypolish undid. For the other two (_Klebsiella_ and _Providencia_), Medaka made one change which Polypolish kept.
 
 Dnaapler:
 ```bash
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    cd ~/2025-04_Autocycler_paper/accuracy_test/"$s"/reference_assembly
+    cd ~/2025-04_Autocycler_paper/"$s"/reference_assembly
     
     dnaapler all -i trycycler_medaka_polypolish_pypolca.fasta -o dnaapler -t 16
     seqtk seq dnaapler/dnaapler_reoriented.fasta > trycycler_medaka_polypolish_pypolca_dnaapler.fasta
@@ -315,7 +315,7 @@ for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Provi
 done
 ```
 
-I compared my new assemblies to my old ones, and the only difference was in a very long homopolymer in the Shigella genome. My old assembly had Cx17 but my new one had Cx16. There seem to be no Illumina reads which span this, so I have to lean entirely on ONT reads here. The ONT distribution looks like this:
+I compared my new assemblies to my old ones, and the only difference was in a very long homopolymer in the _Shigella_ genome. My old assembly had Cx17 but my new one had Cx16. There seem to be no Illumina reads which span this, so I have to lean entirely on ONT reads here. The ONT distribution looks like this:
 ```
 Cx13: 8
 Cx14: 20
@@ -331,7 +331,39 @@ So I'll go with the most common length, Cx17, but this one is uncertain.
 
 I then manually renamed the contigs in each `reference.fasta` file to be `chromosome`, `plasmid_1`, `plasmid_2`, etc.
 
-Aside from that long homopolymer in Shigella, the reference genome assemblies went smoothly, as I suspected they would (I had previously assembled genomes from this ONT run and selected these five in part because they assembled well). So I'm confident that they are error-free (or close to it).
+Aside from that long homopolymer in _Shigella_, the reference genome assemblies went smoothly, as I suspected they would (I had previously assembled genomes from this ONT run and selected these five in part because they assembled well). So I'm confident that they are error-free (or close to it).
+
+
+
+
+# Check species
+
+Tool versions used:
+* GTDB-Tk 2.4.1
+* GTDB R226
+
+To double-check that these genomes match their species labels, I'll run them through GTDB-Tk's classification. Trying with both the Mash-based and classic workflows:
+```bash
+cd ~/2025-04_Autocycler_paper
+mkdir gtdb
+mkdir gtdb/in
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
+    cp ~/2025-04_Autocycler_paper/"$s"/reference.fasta gtdb/in/"$s".fasta
+done
+cd gtdb
+gtdbtk classify_wf --genome_dir in --out_dir out_1 --cpus 32 --extension fasta --mash_db "$GTDBTK_DATA_PATH"/mash.msh 
+gtdbtk classify_wf --genome_dir in --out_dir out_2 --cpus 32 --extension fasta --skip_ani_screen
+```
+
+The _Enterobacter_ genome was classified as _Enterobacter hormaechei_C_, i.e. GTDB split _Enterobacter hormaechei_ into multiple species. But that's okay - I'll just leave it as _Enterobacter hormaechei_.
+
+The _Listeria_ genome was a suprise, however: GTDB (both methods) classified it as _Listeria innocua_, not _Listeria welshimeri_. I also checked it against some NCBI genomes to make sure this wasn't a weird GTDB thing, and the results were the same: _Listeria innocua_. So I'll rename this genome:
+```bash
+cd ~/2025-04_Autocycler_paper
+mv Listeria_welshimeri Listeria_innocua
+```
+
+Note that the [BioSample](https://www.ncbi.nlm.nih.gov/biosample/SAMN46906078) for this isolate (which was uploaded previously, not as part of this paper) still says _Listeria welshimeri_.
 
 
 
@@ -341,8 +373,8 @@ Aside from that long homopolymer in Shigella, the reference genome assemblies we
 The full ONT read set is over 300x deep for each sample, so I'll divide each into 6 non-overlapping 50x deep sets.
 
 ```bash
-for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    mkdir ~/2025-04_Autocycler_paper/accuracy_test/"$s"/reads_subsampled
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
+    mkdir ~/2025-04_Autocycler_paper/"$s"/reads_subsampled
 done
 ```
 
@@ -351,9 +383,10 @@ Run this Python code in each genome's directory, changing the genome size as app
 import gzip
 genome_size = 5384747  # Enterobacter_hormaechei
 # genome_size = 5990196  # Klebsiella_pneumoniae
-# genome_size = 2972545  # Listeria_welshimeri
+# genome_size = 2972545  # Listeria_innocua
 # genome_size = 4465806  # Providencia_rettgeri
 # genome_size = 4828487  # Shigella_flexneri
+
 target_bp, max_subsets = genome_size * 50, 6
 subset, bp = 1, 0
 out = open(f"reads_subsampled/{subset}.fastq", "w")
@@ -372,8 +405,8 @@ with gzip.open("reads_qc/nanopore.fastq.gz", "rt") as f:
 
 Sanity check - make sure there are no read IDs shared between files:
 ```bash
-for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    cd  ~/2025-04_Autocycler_paper/accuracy_test/"$s"/reads_subsampled
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
+    cd  ~/2025-04_Autocycler_paper/"$s"/reads_subsampled
     for f in {1..6}.fastq; do
         cat "$f" | paste - - - - | cut -f1 -d' '
     done | sort | uniq -d
@@ -382,8 +415,8 @@ done
 
 Sanity check - make each file is 50x depth:
 ```bash
-for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    cd ~/2025-04_Autocycler_paper/accuracy_test/"$s"
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
+    cd ~/2025-04_Autocycler_paper/"$s"
     genome_size=$(seqtk size reference.fasta | cut -f2)
     for f in {1..6}.fastq; do
         reads_size=$(seqtk size reads_subsampled/"$f" | cut -f2)
@@ -410,8 +443,8 @@ Tool versions used:
 * Wtdbg 2.5
 
 ```bash
-for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    mkdir ~/2025-04_Autocycler_paper/accuracy_test/"$s"/assemblies
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
+    mkdir ~/2025-04_Autocycler_paper/"$s"/assemblies
 done
 ```
 
@@ -445,12 +478,12 @@ jobs=6
 declare -A genome_sizes
 genome_sizes["Enterobacter_hormaechei"]=5384747
 genome_sizes["Klebsiella_pneumoniae"]=5990196
-genome_sizes["Listeria_welshimeri"]=2972545
+genome_sizes["Listeria_innocua"]=2972545
 genome_sizes["Providencia_rettgeri"]=4465806
 genome_sizes["Shigella_flexneri"]=4828487
 
-for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    cd ~/2025-04_Autocycler_paper/accuracy_test/"$s"
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
+    cd ~/2025-04_Autocycler_paper/"$s"
         genome_size=$genome_sizes["$s"]
         for assembler in raven redbean miniasm lja metamdbg flye necat nextdenovo canu; do
         for i in {1..6}; do
@@ -459,19 +492,18 @@ for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Provi
     done
 done
 
-for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    cd ~/2025-04_Autocycler_paper/accuracy_test/"$s"
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
+    cd ~/2025-04_Autocycler_paper/"$s"
     parallel --jobs "$jobs" --joblog assemblies/joblog.txt --results assemblies/logs < assemblies/jobs.txt
 done
 ```
 
 These were all successful except for one NECAT assembly (`Providencia_rettgeri/assemblies/necat_1.fasta`) which I re-ran with a different thread count:
 ```bash
-cd ~/2025-04_Autocycler_paper/accuracy_test/Providencia_rettgeri
+cd ~/2025-04_Autocycler_paper/Providencia_rettgeri
 necat.sh reads_subsampled/1.fastq assemblies/necat_1 24 4465806
 ```
 This is a common problem I have noticed with NECAT - it just crashes sometimes and using a different number of threads makes it work. I'm actually surprised it only happened once for all 30 NECAT assemblies.
-
 
 
 
@@ -488,12 +520,12 @@ MAECI doesn't have any releases, so I used the current (as of April) pull from G
 declare -A genome_sizes
 genome_sizes["Enterobacter_hormaechei"]=5384747
 genome_sizes["Klebsiella_pneumoniae"]=5990196
-genome_sizes["Listeria_welshimeri"]=2972545
+genome_sizes["Listeria_innocua"]=2972545
 genome_sizes["Providencia_rettgeri"]=4465806
 genome_sizes["Shigella_flexneri"]=4828487
 
-for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    cd ~/2025-04_Autocycler_paper/accuracy_test/"$s"
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
+    cd ~/2025-04_Autocycler_paper/"$s"
     genome_size=$genome_sizes["$s"]
     for i in {1..6}; do
         mkdir maeci_"$i"
@@ -506,6 +538,7 @@ done
 
 
 
+
 # Dragonflye assemblies
 
 [Dragonflye](https://github.com/rpetit3/dragonflye) is bacterial assembly pipeline based on Flye.
@@ -513,8 +546,8 @@ done
 I used the latest version as of April 2025: 1.2.1
 
 ```bash
-for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    cd ~/2025-04_Autocycler_paper/accuracy_test/"$s"
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
+    cd ~/2025-04_Autocycler_paper/"$s"
     for i in {1..6}; do
         dragonflye --reads reads_subsampled/"$i".fastq --outdir dragonflye_"$i" --cpus 32
         cp dragonflye_"$i"/contigs.reoriented.fa assemblies/dragonflye_"$i".fasta
@@ -525,6 +558,7 @@ done
 
 
 
+
 # Hybracter assemblies
 
 [Hybracter](https://github.com/gbouras13/hybracter) is a bacterial assembly pipeline that includes many steps, including plasmid recovery with Plassembler.
@@ -532,8 +566,8 @@ done
 I used the latest version as of April 2025: 0.11.2
 
 ```bash
-for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    cd ~/2025-04_Autocycler_paper/accuracy_test/"$s"
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
+    cd ~/2025-04_Autocycler_paper/"$s"
     for i in {1..6}; do
         hybracter long-single -l reads_subsampled/"$i".fastq -s "$s"_"$i" --auto -o hybracter_"$i" -t 32
         cp hybracter_"$i"/FINAL_OUTPUT/*complete/*_final.fasta assemblies/hybracter_"$i".fasta
@@ -542,18 +576,19 @@ for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Provi
 done
 ```
 
-For some reason, Hybracter completely botched the Shigella genome, either producing a terrible fragmented assembly or crashing. I suspect the read QC might be to blame, so I'm trying again with QC turned off:
+For some reason, Hybracter completely botched the _Shigella_ genome, either producing a terrible fragmented assembly or crashing. I suspect the read QC might be to blame, so I'm trying again with QC turned off:
 ```bash
-for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    cd ~/2025-04_Autocycler_paper/accuracy_test/"$s"
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
+    cd ~/2025-04_Autocycler_paper/"$s"
     for i in {1..6}; do
         hybracter long-single -l reads_subsampled/"$i".fastq -s "$s"_"$i" --auto -o hybracter_"$i" -t 32 --skip_qc
-        cp hybracter_"$i"/FINAL_OUTPUT/*complete/*_final.fasta assemblies/hybracter_no_qc_"$i".fasta
+        cp hybracter_"$i"/FINAL_OUTPUT/*complete/*_final.fasta assemblies/hybracter_"$i".fasta
         rm -r hybracter_"$i"
     done
 done
 ```
 This worked much better, so I'll use these as my Hybracter assemblies.
+
 
 
 
@@ -565,9 +600,9 @@ I used the latest version as of April 2025: 0.3.1
 
 First, I'll do completely automated assemblies:
 ```bash
-for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
     for i in {1..6}; do
-        cd ~/2025-04_Autocycler_paper/accuracy_test/"$s"
+        cd ~/2025-04_Autocycler_paper/"$s"
         mkdir autocycler_"$i" && cd autocycler_"$i"
         autocycler_full.sh ../reads_subsampled/"$i".fastq 32 4
         cp autocycler_out/consensus_assembly.fasta ../assemblies/autocycler_"$i".fasta
@@ -577,8 +612,8 @@ done
 
 Then I'll make manually curated assemblies. For these, I'll copy the input assemblies I made for the automated Autocycler assemblies:
 ```bash
-for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    cd ~/2025-04_Autocycler_paper/accuracy_test/"$s"
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
+    cd ~/2025-04_Autocycler_paper/"$s"
     for i in {1..6}; do
         mkdir autocycler_"$i"_manual
         mkdir autocycler_"$i"_manual/assemblies
@@ -609,13 +644,14 @@ autocycler combine -a autocycler_out -i autocycler_out/clustering/qc_pass/cluste
 
 Once this are completed, I can then copy final assembly:
 ```bash
-for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    cd ~/2025-04_Autocycler_paper/accuracy_test/"$s"
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
+    cd ~/2025-04_Autocycler_paper/"$s"
     for i in {1..6}; do
         cp autocycler_"$i"_manual/autocycler_out/consensus_assembly.fasta assemblies/autocycler_manual_"$i".fasta
     done
 done
 ```
+
 
 
 
@@ -636,14 +672,12 @@ Some notes on specific tools I tried:
 
 
 
-
-
-# Count errors and mistakes
+  # Count errors and mistakes
 
 Produce the main results table:
 ```bash
 ./assess_assembly.py --header > results.tsv
-for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
     for a in "$s"/assemblies/*.fasta; do
         ./assess_assembly.py -r "$s"/reference.fasta -a "$a" >> results.tsv
     done
@@ -653,15 +687,15 @@ done
 
 
 
-
 # Further investigations
+
 
 ## Autocycler errors
 
 To allow me to manually inspect the remaining sequence-level errors in Autocycler assemblies, I made Dnaapler-reoriented versions each, and where Dnaapler failed to find a starting position, I manually rotated any sequences to match the reference.
 ```bash
-for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    cd ~/2025-04_Autocycler_paper/accuracy_test/"$s"/assemblies
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
+    cd ~/2025-04_Autocycler_paper/"$s"/assemblies
     for i in {1..6}; do
         dnaapler all -i autocycler_manual_"$i".fasta -o dnaapler -t 16
         seqtk seq dnaapler/dnaapler_reoriented.fasta > ../autocycler_"$i"_manual/rotated.fasta
@@ -672,8 +706,8 @@ done
 
 I then used my [`compare_assemblies.py`](https://github.com/rrwick/Perfect-bacterial-genome-tutorial/wiki/Comparing-assemblies) script to make a human-readable file of all errors:
 ```bash
-for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_welshimeri Providencia_rettgeri Shigella_flexneri; do
-    cd ~/2025-04_Autocycler_paper/accuracy_test/"$s"
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
+    cd ~/2025-04_Autocycler_paper/"$s"
     for i in {1..6}; do
         echo "$s"/autocycler_"$i"_manual/rotated.fasta >> ../autocycler_errors.txt
         compare_assemblies.py autocycler_"$i"_manual/rotated.fasta reference.fasta >> ../autocycler_errors.txt
@@ -689,18 +723,17 @@ Error types, totaled across all 30 Autocycler assemblies:
 Note that these total up to 125 errors, which slightly disagrees with the 123 errors in the results table. This is because the results table was populated by the `assess_assembly.py` script which in a couple cases interpreted a homopolymer-length error near the contig end as missing/extra bases.
 
 
-
 ## Dragonflye error test
 
 I suspect that Dragonflye produced more errors than Flye because of its use of Racon. To test this, I made Dragonflye assemblies of the _Listeria_ genome (smallest so fastest to assemble) with and without Racon:
 ```bash
-cd ~/2025-04_Autocycler_paper/accuracy_test/Listeria_welshimeri
+cd ~/2025-04_Autocycler_paper/Listeria_innocua
 for i in {1..6}; do
     dragonflye --reads reads_subsampled/"$i".fastq --outdir dragonflye_defaults_"$i" --cpus 32
     dragonflye --reads reads_subsampled/"$i".fastq --outdir dragonflye_no_racon_"$i" --cpus 32 --racon 0
 done
 
-cd ~/2025-04_Autocycler_paper/accuracy_test/Listeria_welshimeri
+cd ~/2025-04_Autocycler_paper/Listeria_innocua
 ../assess_assembly.py --header > dragonflye_results.tsv
 for a in dragonflye_*/contigs.reoriented.fa; do
     ../assess_assembly.py -r reference.fasta -a "$a" >> dragonflye_results.tsv
@@ -711,7 +744,7 @@ I was surprised to see that Racon was not to blame! In this test, the no-Racon a
 
 New hypothesis: When Dragonflye runs Flye, it uses `-i 0` to turn off Flye polishing. So Dragonflye essentially replaced Flye's internal polishing with Racon-based polishing. I can change this with `--opts '-i 1'` (which actually runs Flye with _both_ `-i 0` and `-i 1` but it seems to work anyway).
 ```bash
-cd ~/2025-04_Autocycler_paper/accuracy_test/Listeria_welshimeri
+cd ~/2025-04_Autocycler_paper/Listeria_innocua
 for i in {1..6}; do
     dragonflye --reads reads_subsampled/"$i".fastq --outdir dragonflye_flye_polish_no_racon_"$i" --cpus 32 --racon 0 --opts '-i 1'
 done
@@ -722,7 +755,7 @@ done
 
 That fixed the errors in 4/6 assemblies, so that seems to be a big part of the problem! But 2/6 assemblies still had problems. Dragonflye's default is to use `--nano-raw` with Flye, but `--nano-hq` is a better choice for modern data. Dragonflye supports this with the `--nanohq` option, so trying that.
 ```bash
-cd ~/2025-04_Autocycler_paper/accuracy_test/Listeria_welshimeri
+cd ~/2025-04_Autocycler_paper/Listeria_innocua
 for i in {1..6}; do
     dragonflye --reads reads_subsampled/"$i".fastq --outdir dragonflye_flye_polish_no_racon_nanohq_"$i" --cpus 32 --racon 0 --opts '-i 1' --nanohq
 done
@@ -735,6 +768,11 @@ Now the results are pretty much in line with Flye. So I think there are two reas
 * It uses Racon to polish instead of Flye's polisher (and it seems as though Flye's polisher is better).
 * It uses `--nano-raw` by default but `--nano-hq` does better.
 
+Clean up:
+```bash
+cd ~/2025-04_Autocycler_paper/Listeria_innocua
+rm -r dragonflye_*
+```
 
 
 ## Hybracter per-replicon error rates
@@ -743,53 +781,94 @@ For the _Enterobacter_ and _Klebsiella_ genomes, Hybracter assemblies often had 
 
 To confirm this, I ran the `assess_assembly.py` script on a per-replicon basis for the Hybracter assemblies of the _Enterobacter_ and _Klebsiella_ genomes:
 ```bash
-cd ~/2025-04_Autocycler_paper/accuracy_test
+cd ~/2025-04_Autocycler_paper
 ./assess_assembly.py --header > hybracter_results.tsv
 
-
-
-cd ~/2025-04_Autocycler_paper/accuracy_test/Enterobacter_hormaechei
+cd ~/2025-04_Autocycler_paper/Enterobacter_hormaechei
 grep -A1 "chromosome" reference.fasta > reference_chromosome.fasta
 grep -A1 "plasmid_1" reference.fasta > reference_plasmid_1.fasta
 grep -A1 "plasmid_2" reference.fasta > reference_plasmid_2.fasta
 grep -A1 "plasmid_3" reference.fasta > reference_plasmid_3.fasta
-cd ~/2025-04_Autocycler_paper/accuracy_test/Enterobacter_hormaechei/assemblies
+cd ~/2025-04_Autocycler_paper/Enterobacter_hormaechei/assemblies
 for i in {1..6}; do
-    seqtk seq hybracter_no_qc_"$i".fasta | grep -A1 "chromosome00001" > hybracter_no_qc_"$i"_chromosome.fasta
-    seqtk seq hybracter_no_qc_"$i".fasta | grep -A1 "plasmid00001" > hybracter_no_qc_"$i"_plasmid_1.fasta
-    seqtk seq hybracter_no_qc_"$i".fasta | grep -A1 "plasmid00002" > hybracter_no_qc_"$i"_plasmid_2.fasta
-    seqtk seq hybracter_no_qc_"$i".fasta | grep -A1 "plasmid00003" > hybracter_no_qc_"$i"_plasmid_3.fasta
-    ../../assess_assembly.py  -r ../reference_chromosome.fasta -a hybracter_no_qc_"$i"_chromosome.fasta >> ../../hybracter_results.tsv
-    ../../assess_assembly.py  -r ../reference_plasmid_1.fasta -a hybracter_no_qc_"$i"_plasmid_1.fasta >> ../../hybracter_results.tsv
-    ../../assess_assembly.py  -r ../reference_plasmid_2.fasta -a hybracter_no_qc_"$i"_plasmid_2.fasta >> ../../hybracter_results.tsv
-    ../../assess_assembly.py  -r ../reference_plasmid_3.fasta -a hybracter_no_qc_"$i"_plasmid_3.fasta >> ../../hybracter_results.tsv
-    rm hybracter_no_qc_"$i"_chromosome.fasta hybracter_no_qc_"$i"_plasmid_*.fasta
+    seqtk seq hybracter_"$i".fasta | grep -A1 "chromosome00001" > hybracter_"$i"_chromosome.fasta
+    seqtk seq hybracter_"$i".fasta | grep -A1 "plasmid00001" > hybracter_"$i"_plasmid_1.fasta
+    seqtk seq hybracter_"$i".fasta | grep -A1 "plasmid00002" > hybracter_"$i"_plasmid_2.fasta
+    seqtk seq hybracter_"$i".fasta | grep -A1 "plasmid00003" > hybracter_"$i"_plasmid_3.fasta
+    ../../assess_assembly.py  -r ../reference_chromosome.fasta -a hybracter_"$i"_chromosome.fasta >> ../../hybracter_results.tsv
+    ../../assess_assembly.py  -r ../reference_plasmid_1.fasta -a hybracter_"$i"_plasmid_1.fasta >> ../../hybracter_results.tsv
+    ../../assess_assembly.py  -r ../reference_plasmid_2.fasta -a hybracter_"$i"_plasmid_2.fasta >> ../../hybracter_results.tsv
+    ../../assess_assembly.py  -r ../reference_plasmid_3.fasta -a hybracter_"$i"_plasmid_3.fasta >> ../../hybracter_results.tsv
+    rm hybracter_"$i"_chromosome.fasta hybracter_"$i"_plasmid_*.fasta
 done
-cd ~/2025-04_Autocycler_paper/accuracy_test/Enterobacter_hormaechei
+cd ~/2025-04_Autocycler_paper/Enterobacter_hormaechei
 rm reference_chromosome.fasta reference_plasmid_*.fasta
 
-cd ~/2025-04_Autocycler_paper/accuracy_test/Klebsiella_pneumoniae
+cd ~/2025-04_Autocycler_paper/Klebsiella_pneumoniae
 grep -A1 "chromosome" reference.fasta > reference_chromosome.fasta
 grep -A1 "plasmid_1" reference.fasta > reference_plasmid_1.fasta
 grep -A1 "plasmid_2" reference.fasta > reference_plasmid_2.fasta
 grep -A1 "plasmid_3" reference.fasta > reference_plasmid_3.fasta
 grep -A1 "plasmid_4" reference.fasta > reference_plasmid_4.fasta
-cd ~/2025-04_Autocycler_paper/accuracy_test/Klebsiella_pneumoniae/assemblies
+cd ~/2025-04_Autocycler_paper/Klebsiella_pneumoniae/assemblies
 for i in {1..6}; do
-    seqtk seq hybracter_no_qc_"$i".fasta | grep -A1 "chromosome00001" > hybracter_no_qc_"$i"_chromosome.fasta
-    seqtk seq hybracter_no_qc_"$i".fasta | grep -A1 "plasmid00001" > hybracter_no_qc_"$i"_plasmid_1.fasta
-    seqtk seq hybracter_no_qc_"$i".fasta | grep -A1 "plasmid00002" > hybracter_no_qc_"$i"_plasmid_2.fasta
-    seqtk seq hybracter_no_qc_"$i".fasta | grep -A1 "plasmid00003" > hybracter_no_qc_"$i"_plasmid_3.fasta
-    seqtk seq hybracter_no_qc_"$i".fasta | grep -A1 "plasmid00004" > hybracter_no_qc_"$i"_plasmid_4.fasta
-    ../../assess_assembly.py  -r ../reference_chromosome.fasta -a hybracter_no_qc_"$i"_chromosome.fasta >> ../../hybracter_results.tsv
-    ../../assess_assembly.py  -r ../reference_plasmid_1.fasta -a hybracter_no_qc_"$i"_plasmid_1.fasta >> ../../hybracter_results.tsv
-    ../../assess_assembly.py  -r ../reference_plasmid_2.fasta -a hybracter_no_qc_"$i"_plasmid_2.fasta >> ../../hybracter_results.tsv
-    ../../assess_assembly.py  -r ../reference_plasmid_3.fasta -a hybracter_no_qc_"$i"_plasmid_3.fasta >> ../../hybracter_results.tsv
-    ../../assess_assembly.py  -r ../reference_plasmid_4.fasta -a hybracter_no_qc_"$i"_plasmid_4.fasta >> ../../hybracter_results.tsv
-    rm hybracter_no_qc_"$i"_chromosome.fasta hybracter_no_qc_"$i"_plasmid_*.fasta
+    seqtk seq hybracter_"$i".fasta | grep -A1 "chromosome00001" > hybracter_"$i"_chromosome.fasta
+    seqtk seq hybracter_"$i".fasta | grep -A1 "plasmid00001" > hybracter_"$i"_plasmid_1.fasta
+    seqtk seq hybracter_"$i".fasta | grep -A1 "plasmid00002" > hybracter_"$i"_plasmid_2.fasta
+    seqtk seq hybracter_"$i".fasta | grep -A1 "plasmid00003" > hybracter_"$i"_plasmid_3.fasta
+    seqtk seq hybracter_"$i".fasta | grep -A1 "plasmid00004" > hybracter_"$i"_plasmid_4.fasta
+    ../../assess_assembly.py  -r ../reference_chromosome.fasta -a hybracter_"$i"_chromosome.fasta >> ../../hybracter_results.tsv
+    ../../assess_assembly.py  -r ../reference_plasmid_1.fasta -a hybracter_"$i"_plasmid_1.fasta >> ../../hybracter_results.tsv
+    ../../assess_assembly.py  -r ../reference_plasmid_2.fasta -a hybracter_"$i"_plasmid_2.fasta >> ../../hybracter_results.tsv
+    ../../assess_assembly.py  -r ../reference_plasmid_3.fasta -a hybracter_"$i"_plasmid_3.fasta >> ../../hybracter_results.tsv
+    ../../assess_assembly.py  -r ../reference_plasmid_4.fasta -a hybracter_"$i"_plasmid_4.fasta >> ../../hybracter_results.tsv
+    rm hybracter_"$i"_chromosome.fasta hybracter_"$i"_plasmid_*.fasta
 done
-cd ~/2025-04_Autocycler_paper/accuracy_test/Klebsiella_pneumoniae
+cd ~/2025-04_Autocycler_paper/Klebsiella_pneumoniae
 rm reference_chromosome.fasta reference_plasmid_*.fasta
 ```
 
 As expected, the excess errors were often found in large (>100 kbp) plasmids.
+
+
+
+
+# Tarball data for public repo
+
+Assemblies (and references):
+```bash
+cd ~/2025-04_Autocycler_paper
+mkdir assemblies
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
+    mkdir assemblies/"$s"
+    cp "$s"/reference.fasta assemblies/"$s"
+    cp "$s"/assemblies/*.fasta assemblies/"$s"
+done
+find assemblies/ -type f | sort | tar -Jcvf assemblies.tar.xz --owner=0 --group=0 -T -
+rm -r assemblies
+```
+
+Full reads:
+```bash
+cd ~/2025-04_Autocycler_paper
+mkdir reads_full
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
+    mkdir reads_full/"$s"
+    cp "$s"/reads_qc/illumina_[12].fastq.gz reads_full/"$s"
+    cp "$s"/reads_qc/nanopore.fastq.gz reads_full/"$s"
+done
+find reads_full/ -type f | sort | tar -cvf reads_full.tar --owner=0 --group=0 -T -
+rm -r reads_full
+```
+
+Subsampled reads:
+```bash
+cd ~/2025-04_Autocycler_paper
+mkdir reads_subsampled
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
+    mkdir reads_subsampled/"$s"
+    cp "$s"/reads_subsampled/*.fastq reads_subsampled/"$s"
+done
+find reads_subsampled/ -type f | sort | tar -Jcvf reads_subsampled.tar.xz --owner=0 --group=0 -T -
+rm -r reads_subsampled
+```

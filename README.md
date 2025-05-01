@@ -10,4 +10,4 @@ This repository contains:
 * [`assess_assembly.py`](assess_assembly.py): the Python script used to quantify assembly accuracy.
 * [`plots.Rmd`](plots.Rmd): R code for generating the plots in Figure 2.
 
-The datasets used in this paper (reads, assemblies, and references) are too large to host here but can be downloaded from: [TBD](TBD).
+The datasets used in this study (reads, assemblies and reference genomes) are too large to host on GitHub but are available from [this figshare repository](https://figshare.unimelb.edu.au/projects/Autocycler/247142). While the five isolates are also available via the SRA (accessions listed in Table S1), the ONT reads were re-basecalled using the latest version of Dorado. The figshare repository provides the exact post-QC read sets used in this paper.

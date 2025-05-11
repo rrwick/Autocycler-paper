@@ -24,7 +24,7 @@ pdf.options(useDingbats = FALSE)
 
 
 ```{r load_data}
-df <- read_excel("tables.xlsx", sheet="Assembly results")
+df <- read_excel("tables.xlsx", sheet = "Table S2 - Assembly results", skip = 1)
 
 df$`Total error count` <- df$`Error count` + df$`Extra assembly bases` + df$`Missing assembly bases`
 
@@ -32,7 +32,8 @@ df$Assembler <- factor(df$Assembler, levels = c("Canu", "Flye", "LJA", "metaMDBG
 ```
 
 
-```{r plot, fig.width = 9, fig.height = 7}
+Produce the Figure 2 plot, showing sequence errors and total errors for each assembler as quantified by the `assess_assembly.py` script.
+```{r figure_2, fig.width = 9, fig.height = 7}
 y_breaks <- c(0, 10, 100, 1000, 10000, 100000, 1000000)
 y_minor_breaks <- c(seq(0, 10),
                     seq(20, 100, 10),
@@ -91,9 +92,18 @@ plot_grid(p1, p2, ncol=1, rel_heights=c(0.87, 1), align="v")
 ```
 
 
-```{r missing_extra_plots, fig.width = 9, fig.height = 7}
-p1 <- ggplot(df, aes(x = Assembler, y = `Missing assembly bases`, fill = assembler_type(Assembler))) +
-  geom_boxplot() +
+Plot the missing bases and extra bases from the the `assess_assembly.py` script results. I couldn't use `coef=Inf` here (like I did for the above plot to avoid outlier points) because some assemblers have an IQR of 0, so I needed to do a workaround by manually passing the ymin/lower/middle/upper/ymax values to `geom_boxplot`.
+```{r missing_extra_bases, fig.width = 9, fig.height = 7}
+box_stats <- df %>%
+  group_by(Assembler) %>%
+  summarise(ymin = min(`Missing assembly bases`),
+            lower = quantile(`Missing assembly bases`, 0.25),
+            middle = median(`Missing assembly bases`),
+            upper = quantile(`Missing assembly bases`, 0.75),
+            ymax = max(`Missing assembly bases`))
+
+p1 <- ggplot(box_stats, aes(x = Assembler, fill = assembler_type(Assembler))) +
+  geom_boxplot(aes(ymin = ymin, lower = lower, middle = middle, upper = upper, ymax = ymax), stat = "identity") +
   scale_y_continuous(trans = scales::pseudo_log_trans(base = 10), expand = c(0, 0), limits = c(0, 1000000),
                      breaks = y_breaks, minor_breaks = y_minor_breaks, labels = y_labels) +
   scale_x_discrete(labels = x_axis_labels) +
@@ -102,17 +112,25 @@ p1 <- ggplot(df, aes(x = Assembler, y = `Missing assembly bases`, fill = assembl
   theme(axis.ticks.x = element_blank(), panel.grid.minor = element_line(size = 0.1),
         legend.key.height = unit(2.5, "lines")) +
   guides(fill = guide_legend(title = NULL)) +
-  labs(title="Missing bases", x=NULL, y="Errors per assembly")
+  labs(title="Missing bases (from assess_assembly.py)", x=NULL, y="Missing bases per assembly")
 
-p2 <- ggplot(df, aes(x = Assembler, y = `Extra assembly bases`, fill = assembler_type(Assembler))) +
-  geom_boxplot() +
+box_stats <- df %>%
+  group_by(Assembler) %>%
+  summarise(ymin = min(`Extra assembly bases`),
+            lower = quantile(`Extra assembly bases`, 0.25),
+            middle = median(`Extra assembly bases`),
+            upper = quantile(`Extra assembly bases`, 0.75),
+            ymax = max(`Extra assembly bases`))
+
+p2 <- ggplot(box_stats, aes(x = Assembler, fill = assembler_type(Assembler))) +
+  geom_boxplot(aes(ymin = ymin, lower = lower, middle = middle, upper = upper, ymax = ymax), stat = "identity") +
   scale_y_continuous(trans = scales::pseudo_log_trans(base = 10), expand = c(0, 0), limits = c(0, 1000000),
                      breaks = y_breaks, minor_breaks = y_minor_breaks, labels = y_labels) +
   scale_x_discrete(labels = x_axis_labels) +
   scale_fill_manual(values = assembler_type_colours) +
   theme_bw() +
   theme(legend.position = "none", axis.ticks.x = element_blank(), panel.grid.minor = element_line(size = 0.1)) +
-  labs(title="Extra bases", x=NULL, y="Errors per assembly")
+  labs(title="Extra bases (from assess_assembly.py)", x=NULL, y="Extra bases per assembly")
 
 plot_grid(p1, p2, ncol=1, align="v")
 ```
@@ -126,3 +144,65 @@ df %>%
     max = max(`Error count`, na.rm = TRUE)
   )
 ```
+
+Plot results from the Inspector and CRAQ tools.
+```{r inspector_and_craq, fig.width = 9, fig.height = 12}
+p1 <- ggplot(df, aes(x = Assembler, y = `Total small-scale assembly error`, fill = assembler_type(Assembler))) +
+  geom_boxplot(coef=Inf) +
+  scale_y_continuous(trans = scales::pseudo_log_trans(base = 10), expand = c(0, 0), limits = c(0, 10000),
+                     breaks = y_breaks, minor_breaks = y_minor_breaks, labels = y_labels) +
+  scale_x_discrete(labels = x_axis_labels) +
+  scale_fill_manual(values = assembler_type_colours) +
+  theme_bw() +
+  theme(axis.ticks.x = element_blank(), panel.grid.minor = element_line(size = 0.1),
+        legend.key.height = unit(2.5, "lines")) +
+  guides(fill = guide_legend(title = NULL)) +
+  labs(title="Inspector small-scale errors", x=NULL, y="Errors per assembly")
+
+box_stats <- df %>%
+  group_by(Assembler) %>%
+  summarise(ymin = min(`Structural error`),
+            lower = quantile(`Structural error`, 0.25),
+            middle = median(`Structural error`),
+            upper = quantile(`Structural error`, 0.75),
+            ymax = max(`Structural error`))
+
+p2 <- ggplot(box_stats, aes(x = Assembler, fill = assembler_type(Assembler))) +
+  geom_boxplot(aes(ymin = ymin, lower = lower, middle = middle, upper = upper, ymax = ymax), stat = "identity") +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 5), minor_breaks = NULL) +
+  scale_x_discrete(labels = x_axis_labels) +
+  scale_fill_manual(values = assembler_type_colours) +
+  theme_bw() +
+  theme(legend.position = "none", axis.ticks.x = element_blank(), panel.grid.minor = element_line(size = 0.1)) +
+  labs(title="Inspector structural errors", x=NULL, y="Errors per assembly")
+
+p3 <- ggplot(df, aes(x = Assembler, y = `Avg.CRE`, fill = assembler_type(Assembler))) +
+  geom_boxplot(coef=1000) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 4)) +
+  scale_x_discrete(labels = x_axis_labels) +
+  scale_fill_manual(values = assembler_type_colours) +
+  theme_bw() +
+  theme(legend.position = "none", axis.ticks.x = element_blank(), panel.grid.minor = element_line(size = 0.1)) +
+  guides(fill = guide_legend(title = NULL)) +
+  labs(title="CRAQ small-scale errors", x=NULL, y="Avg.CRE per assembly")
+
+box_stats <- df %>%
+  group_by(Assembler) %>%
+  summarise(ymin = min(`Avg.CSE`),
+            lower = quantile(`Avg.CSE`, 0.25),
+            middle = median(`Avg.CSE`),
+            upper = quantile(`Avg.CSE`, 0.75),
+            ymax = max(`Avg.CSE`))
+
+p4 <- ggplot(box_stats, aes(x = Assembler, fill = assembler_type(Assembler))) +
+  geom_boxplot(aes(ymin = ymin, lower = lower, middle = middle, upper = upper, ymax = ymax), stat = "identity") +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.8)) +
+  scale_x_discrete(labels = x_axis_labels) +
+  scale_fill_manual(values = assembler_type_colours) +
+  theme_bw() +
+  theme(legend.position = "none", axis.ticks.x = element_blank(), panel.grid.minor = element_line(size = 0.1)) +
+  labs(title="CRAQ structural errors", x=NULL, y="Avg.CSE per assembly")
+
+plot_grid(p1, p2, p3, p4, ncol=1, align="v")
+```
+

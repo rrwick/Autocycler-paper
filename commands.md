@@ -610,6 +610,17 @@ for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providen
 done
 ```
 
+Make an Autocycler metrics table:
+```bash
+cd ~/2025-04_Autocycler_paper
+autocycler table > metrics.tsv
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
+    for i in {1..6}; do
+        autocycler table -a "$s"/autocycler_"$i" -n "$s"_"$i" >> metrics.tsv
+    done
+done
+```
+
 Then I'll make manually curated assemblies. For these, I'll copy the input assemblies I made for the automated Autocycler assemblies:
 ```bash
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
@@ -672,10 +683,11 @@ Some notes on specific tools I tried:
 
 
 
-  # Count errors and mistakes
+# Count errors and mistakes
 
-Produce the main results table:
+Produce the main results table using my `assess_assembly.py` script to check against my ground-truth reference:
 ```bash
+cd ~/2025-04_Autocycler_paper
 ./assess_assembly.py --header > results.tsv
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
     for a in "$s"/assemblies/*.fasta; do
@@ -684,13 +696,37 @@ for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providen
 done
 ```
 
+Also running [Inspector](https://github.com/Maggi-Chen/Inspector) v1.3.1 and [CRAQ](https://github.com/JiaoLaboratory/CRAQ) v1.0.9, both of which assess assemblies using reads (not a ground-truth genome sequence):
+```bash
+cd ~/2025-04_Autocycler_paper
+mkdir inspector_results
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
+    for a in "$s"/assemblies/*.fasta; do
+        inspector.py -c "$a" -r "$s"/reads_qc/nanopore.fastq.gz -o inspector -d nanopore -t 32
+        name=$(echo $a | sed 's|/assemblies/|_|' | sed 's|.fasta||')
+        cp inspector/summary_statistics inspector_results/"$name"
+        rm -r inspector
+    done
+done
+
+cd ~/2025-04_Autocycler_paper
+mkdir craq_results
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
+    for a in "$s"/assemblies/*.fasta; do
+        craq -g "$a" -sms "$s"/reads_qc/nanopore.fastq.gz -ngs "$s"/reads_qc/illumina_1.fastq.gz,"$s"/reads_qc/illumina_2.fastq.gz --output_dir craq -t 32 -x map-ont
+        name=$(echo $a | sed 's|/assemblies/|_|' | sed 's|.fasta||')
+        cp craq/runAQI_out/out_final.Report craq_results/"$name"
+        rm -r craq
+    done
+done
+```
 
 
 
 # Further investigations
 
 
-## Autocycler errors
+## Autocycler sequence-level errors
 
 To allow me to manually inspect the remaining sequence-level errors in Autocycler assemblies, I made Dnaapler-reoriented versions each, and where Dnaapler failed to find a starting position, I manually rotated any sequences to match the reference.
 ```bash
@@ -721,6 +757,45 @@ Error types, totaled across all 30 Autocycler assemblies:
 * Substitutions: 45
 
 Note that these total up to 125 errors, which slightly disagrees with the 123 errors in the results table. This is because the results table was populated by the `assess_assembly.py` script which in a couple cases interpreted a homopolymer-length error near the contig end as missing/extra bases.
+
+
+## Autocycler structural errors
+
+To check for structural errors in the Autocycler assemblies, I'll run Sniffles to check for structural variants.
+
+Tool versions used:
+* Sniffles 2.6.2
+
+```bash
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
+    for i in {1..6}; do
+        cd ~/2025-04_Autocycler_paper/"$s"/autocycler_"$i"_manual
+        minimap2 -a -x map-ont -t 48 rotated.fasta ../reads_qc/nanopore_50x.fastq.gz | samtools sort > nanopore.bam
+        samtools index nanopore.bam
+        sniffles -i nanopore.bam -v sniffles.vcf
+        rm nanopore.bam*
+    done
+done
+```
+
+All of the Sniffles VCFs were empty, so that's good! But just to check with some positive controls, I'll manually make some structural variants and ensure that Sniffles does find them:
+```bash
+cd ~/2025-04_Autocycler_paper/Enterobacter_hormaechei/autocycler_1_manual
+cp rotated.fasta rotated_with_insertion.fasta
+cp rotated.fasta rotated_with_deletion.fasta
+cp rotated.fasta rotated_with_inversion.fasta
+
+# Manually added structural variants
+
+for sv in insertion deletion inversion; do
+    minimap2 -a -x map-ont -t 48 rotated_with_"$sv".fasta ../reads_qc/nanopore_50x.fastq.gz | samtools sort > nanopore.bam
+    samtools index nanopore.bam
+    sniffles -i nanopore.bam -v sniffles_"$sv".vcf
+    rm nanopore.bam*
+done
+```
+
+Yes, Sniffles found the variant in all three manual cases, so I'm convinced that the negative results from before are genuine.
 
 
 ## Dragonflye error test

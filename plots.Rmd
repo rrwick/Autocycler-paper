@@ -28,7 +28,7 @@ df <- read_excel("tables.xlsx", sheet = "Table S2 - Assembly results", skip = 1)
 
 df$`Total error count` <- df$`Error count` + df$`Extra assembly bases` + df$`Missing assembly bases`
 
-df$Assembler <- factor(df$Assembler, levels = c("Canu", "Flye", "LJA", "metaMDBG", "miniasm", "NECAT", "NextDenovo", "Raven", "Wtdbg2", "Dragonflye", "Hybracter", "MAECI", "Autocycler", "Autocycler-curated"))
+df$Assembler <- factor(df$Assembler, levels = c("Canu", "Flye", "LJA", "metaMDBG", "miniasm", "NECAT", "NextDenovo", "Raven", "wtdbg2", "Dragonflye", "Hybracter", "MAECI", "Autocycler", "Autocycler-curated"))
 ```
 
 
@@ -56,7 +56,7 @@ x_axis_labels <- function(x) {
 
 assembler_type <- function(x) {
   factor(case_when(
-    x %in% c("Canu", "Flye", "LJA", "metaMDBG", "miniasm", "NECAT", "NextDenovo", "Raven", "Wtdbg2") ~ "Single-tool\nassembly",
+    x %in% c("Canu", "Flye", "LJA", "metaMDBG", "miniasm", "NECAT", "NextDenovo", "Raven", "wtdbg2") ~ "Single-tool\nassembly",
     x %in% c("Dragonflye", "Hybracter") ~ "Assembly\npipeline",
     x %in% c("MAECI", "Autocycler", "Autocycler-curated") ~ "Consensus\nassembly"
   ), levels = c("Single-tool\nassembly", "Assembly\npipeline", "Consensus\nassembly"))

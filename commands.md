@@ -13,7 +13,7 @@ scp -r roosta:/home/damg/data/O2024-029/pod5 .
 sbatch --job-name=dorado --time=40:00:00 --ntasks=1 --mem=64000 --cpus-per-task=8 -p gpu-h100 --gres=gpu:1 --wrap "~/programs/dorado-0.9.5-linux-x64/bin/dorado basecaller --kit-name SQK-RBK114-96 sup pod5 > reads.bam"
 ```
 
-Demux and convert to FASTQ:
+Demux:
 ```bash
 cd /data/scratch/projects/punim1894/O2024-029
 sbatch --job-name=dorado --time=2:00:00 --ntasks=1 --mem=64000 --cpus-per-task=8 --wrap "~/programs/dorado-0.9.5-linux-x64/bin/dorado summary reads.bam > summary.tsv"

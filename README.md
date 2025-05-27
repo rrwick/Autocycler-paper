@@ -1,6 +1,6 @@
 <p align="center"><img src="https://github.com/rrwick/Autocycler/wiki/images/logo.png" alt="Autocycler logo" width="90%"></p>
 
-This repository contains the supplementary data for our paper describing Autocycler:<br>[Wick RR, Stinear TP. Autocycler: long-read consensus assembly for bacterial genomes. bioRxiv. 2025. doi:10.1101/2025.??.??.??????](https://doi.org/10.1101/2025.??.??.??????)
+This repository contains the supplementary data for our paper describing Autocycler:<br>[Wick RR, Stinear TP. Autocycler: long-read consensus assembly for bacterial genomes. bioRxiv. 2025. doi:10.1101/2025.05.12.653612](https://doi.org/10.1101/2025.05.12.653612)
 
 If you are looking for Autocycler itself (i.e. the software, not the paper), please see the [Autocycler GitHub repository](https://github.com/rrwick/Autocycler).
 

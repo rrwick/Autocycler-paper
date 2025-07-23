@@ -432,14 +432,15 @@ done
 
 Tool versions used:
 * Canu 2.3
-* Flye 2.9.5
+* Flye 2.9.6
+* Hifiasm v0.25.0
+* LJA v0.2
 * metaMDBG 1.1
-* Miniasm 0.3
-* Minipolish 0.1.3
+* Miniasm 0.3, Minipolish 0.1.3
+* Myloasm v0.1.0
 * Necat 0.0.1_update20200803
-* NextDenovo 2.5.2
-* NextPolish 1.4.1
-* Raven-assembler 1.8.3
+* NextDenovo 2.5.2, NextPolish 1.4.1
+* Raven 1.8.3
 * Wtdbg 2.5
 
 ```bash
@@ -448,32 +449,10 @@ for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providen
 done
 ```
 
-For these assemblies, I'm using my Autocycler helper scripts. These mostly just run the assemblies with default settings, but sometimes do a little bit extra:
-* `canu.sh`
-  * Runs Canu with `-fast` and otherwise default settings.
-  * Then runs my `canu_trim.py` script to trim start-end overlaps and discards 'repeat' and 'bubble' contigs.
-* `flye.sh`
-  * Runs Flye with `--nano-hq` and default settings.
-* `lja.sh`
-  * Runs LJA with default settings.
-* `metamdbg.sh`
-  * Runs metaMDBG with default settings.
-  * Then runs my `metamdbg_filter.py` script to remove low-depth contigs. This is needed since metaMDBG is a metagenome assembler and so leaves low-depth contigs in its assemblies.
-* `miniasm.sh`
-  * Runs miniasm with default settings.
-  * Then polishes the result with Minipolish (also default settings).
-* `necat.sh`
-  * Runs NECAT with default settings.
-  * NECAT needs a `config.txt` file for its parameters (not command line arguments), so this script really simplifies running it.
-* `nextdenovo.sh`
-  * Runs NextDenovo with default settings followed by NextPolish with default settings.
-  * NextDenovo and NextPolish need `.fofn` files for their inputs and `.cfg.` files for their parameters (not command line arguments), so this script really simplifies running them.
-* `raven.sh`
-  * Runs Raven with default settings, but with ` --graphical-fragment-assembly` to additionally save a GFA-format version of the assembly.
+For these assemblies, I'm using [Autocycler helper](https://github.com/rrwick/Autocycler/wiki/Autocycler-helper). It mostly just run the assemblies with default settings, but sometimes does a little bit extra. I also use `--min_depth_rel 0.1` to discard low-depth contigs when that information is available - this is mostly helpful for metaMGBG which is a metagenome assembler and therefore more likely to include low-depth stuff.
 
 ```bash
 threads=32
-jobs=6
 
 declare -A genome_sizes
 genome_sizes["Enterobacter_hormaechei"]=5384747
@@ -485,16 +464,11 @@ genome_sizes["Shigella_flexneri"]=4828487
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
     cd ~/2025-04_Autocycler_paper/"$s"
         genome_size=$genome_sizes["$s"]
-        for assembler in raven redbean miniasm lja metamdbg flye necat nextdenovo canu; do
+        for assembler in raven redbean miniasm myloasm hifiasm metamdbg lja flye necat nextdenovo canu; do
         for i in {1..6}; do
-            echo "nice -n 19 $assembler.sh reads_subsampled/$i.fastq assemblies/${assembler}_$i $threads $genome_size" >> assemblies/jobs.txt
+            /usr/bin/time -v -o assemblies/"$assembler"_"$i".time autocycler helper "$assembler" --reads reads_subsampled/"$i".fastq --out_prefix assemblies/"$assembler"_"$i" --threads "$threads" --genome_size "$genome_size" --min_depth_rel 0.1
         done
     done
-done
-
-for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
-    cd ~/2025-04_Autocycler_paper/"$s"
-    parallel --jobs "$jobs" --joblog assemblies/joblog.txt --results assemblies/logs < assemblies/jobs.txt
 done
 ```
 

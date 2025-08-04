@@ -7,7 +7,7 @@ If you are looking for Autocycler itself (i.e. the software, not the paper), ple
 This repository contains:
 * [`figures/`](figures): all main-text and supplementary figures.
 * [`tables.xlsx`](tables.xlsx): all supplementary tables for the paper.
-* [`commands.md`](commands.md): methods and exact commands used to generate the data shown in Figure 2 and the supplementary tables.
+* [`commands.md`](commands.md): methods and exact commands used to generate the data shown in Figure 2 and the supplementary figures/tables.
 * [`assess_assembly.py`](assess_assembly.py): the Python script used to quantify assembly accuracy.
 * [`plots.Rmd`](plots.Rmd): R code for generating the plots in Figure 2 and Figure S1.
 

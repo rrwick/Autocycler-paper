@@ -443,6 +443,8 @@ Tool versions used:
 * Raven 1.8.3
 * Wtdbg 2.5
 
+I installed most of these tools with conda. The exception was LJA, where I needed to build from source (see [this GitHub issue](https://github.com/AntonBankevich/LJA/issues/43)).
+
 ```bash
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
     mkdir ~/2025-04_Autocycler_paper/"$s"/assemblies
@@ -464,7 +466,7 @@ genome_sizes["Shigella_flexneri"]=4828487
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
     cd ~/2025-04_Autocycler_paper/"$s"
         genome_size=$genome_sizes["$s"]
-        for assembler in raven redbean miniasm myloasm hifiasm metamdbg lja flye necat nextdenovo canu; do
+        for assembler in canu flye hifiasm lja metamdbg miniasm myloasm necat nextdenovo raven redbean; do
         for i in {1..6}; do
             /usr/bin/time -v -o assemblies/"$assembler"_"$i".time autocycler helper "$assembler" --reads reads_subsampled/"$i".fastq --out_prefix assemblies/"$assembler"_"$i" --threads "$threads" --genome_size "$genome_size" --min_depth_rel 0.1
         done
@@ -472,12 +474,15 @@ for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providen
 done
 ```
 
-These were all successful except for one NECAT assembly (`Providencia_rettgeri/assemblies/necat_1.fasta`) which I re-ran with a different thread count:
+These were all successful except for two NECAT assemblies (`Enterobacter_hormaechei/assemblies/necat_4.fasta` and `Klebsiella_pneumoniae/assemblies/necat_6.fasta`) which I re-ran with a different thread count:
 ```bash
-cd ~/2025-04_Autocycler_paper/Providencia_rettgeri
-necat.sh reads_subsampled/1.fastq assemblies/necat_1 24 4465806
+cd ~/2025-04_Autocycler_paper/Enterobacter_hormaechei
+/usr/bin/time -v -o assemblies/necat_4.time autocycler helper necat --reads reads_subsampled/4.fastq --out_prefix assemblies/necat_4 --threads 24 --genome_size 5384747 --min_depth_rel 0.1
+
+cd ~/2025-04_Autocycler_paper/Klebsiella_pneumoniae
+/usr/bin/time -v -o assemblies/necat_6.time autocycler helper necat --reads reads_subsampled/6.fastq --out_prefix assemblies/necat_6 --threads 24 --genome_size 5990196 --min_depth_rel 0.1
 ```
-This is a common problem I have noticed with NECAT - it just crashes sometimes and using a different number of threads makes it work. I'm actually surprised it only happened once for all 30 NECAT assemblies.
+This is a common problem I have noticed with NECAT - it just crashes sometimes and using a different number of threads makes it work.
 
 
 
@@ -503,7 +508,7 @@ for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providen
     genome_size=$genome_sizes["$s"]
     for i in {1..6}; do
         mkdir maeci_"$i"
-        Multiple-Assembly-Integration.pl -fq reads_subsampled/"$i".fastq -path1 canu -path2 flye -path3 wtdbg2 -path4 racon -genome_size "$genome_size" -outputdir maeci_"$i" -reference reference.fasta -process 32
+        /usr/bin/time -v -o assemblies/maeci_"$i".time Multiple-Assembly-Integration.pl -fq reads_subsampled/"$i".fastq -path1 canu -path2 flye -path3 wtdbg2 -path4 racon -genome_size "$genome_size" -outputdir maeci_"$i" -reference reference.fasta -process 32
         cp maeci_"$i"/self-correction/racon.final.fasta assemblies/maeci_"$i".fasta
         rm -rf maeci_"$i"
     done
@@ -523,7 +528,7 @@ I used the latest version as of April 2025: 1.2.1
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
     cd ~/2025-04_Autocycler_paper/"$s"
     for i in {1..6}; do
-        dragonflye --reads reads_subsampled/"$i".fastq --outdir dragonflye_"$i" --cpus 32
+        /usr/bin/time -v -o assemblies/dragonflye_"$i".time dragonflye --reads reads_subsampled/"$i".fastq --outdir dragonflye_"$i" --cpus 32
         cp dragonflye_"$i"/contigs.reoriented.fa assemblies/dragonflye_"$i".fasta
         rm -r dragonflye_"$i"
     done
@@ -543,7 +548,7 @@ I used the latest version as of April 2025: 0.11.2
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
     cd ~/2025-04_Autocycler_paper/"$s"
     for i in {1..6}; do
-        hybracter long-single -l reads_subsampled/"$i".fastq -s "$s"_"$i" --auto -o hybracter_"$i" -t 32
+        /usr/bin/time -v -o assemblies/hybracter_"$i".time hybracter long-single -l reads_subsampled/"$i".fastq -s "$s"_"$i" --auto -o hybracter_"$i" -t 32
         cp hybracter_"$i"/FINAL_OUTPUT/*complete/*_final.fasta assemblies/hybracter_"$i".fasta
         rm -r hybracter_"$i"
     done
@@ -555,7 +560,7 @@ For some reason, Hybracter completely botched the _Shigella_ genome, either prod
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
     cd ~/2025-04_Autocycler_paper/"$s"
     for i in {1..6}; do
-        hybracter long-single -l reads_subsampled/"$i".fastq -s "$s"_"$i" --auto -o hybracter_"$i" -t 32 --skip_qc
+        /usr/bin/time -v -o assemblies/hybracter_"$i".time hybracter long-single -l reads_subsampled/"$i".fastq -s "$s"_"$i" --auto -o hybracter_"$i" -t 32 --skip_qc
         cp hybracter_"$i"/FINAL_OUTPUT/*complete/*_final.fasta assemblies/hybracter_"$i".fasta
         rm -r hybracter_"$i"
     done
@@ -570,15 +575,15 @@ This worked much better, so I'll use these as my Hybracter assemblies.
 
 Used my `autocycler_full.sh` script: https://github.com/rrwick/Autocycler/tree/main/pipelines/Automated_Autocycler_Bash_script_by_Ryan_Wick. This includes Plassembler which is given extra clustering weight, especially relevant for the genomes which have small plasmids (_Enterobacter_, _Klebsiella_ and _Shigella_).
 
-I used the latest version as of April 2025: 0.3.1
+I used the latest version as of July 2025: 0.5.1
 
-First, I'll do completely automated assemblies:
+First, I'll do completely automated assemblies. To make the time performance comparable with other tools (which I gave 32 threads), I'm using 8 threads x 4 jobs:
 ```bash
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
     for i in {1..6}; do
         cd ~/2025-04_Autocycler_paper/"$s"
         mkdir autocycler_"$i" && cd autocycler_"$i"
-        autocycler_full.sh ../reads_subsampled/"$i".fastq 32 4
+        /usr/bin/time -v -o ../assemblies/autocycler_"$i".time autocycler_full.sh ../reads_subsampled/"$i".fastq 8 4
         cp autocycler_out/consensus_assembly.fasta ../assemblies/autocycler_"$i".fasta
     done
 done
@@ -627,7 +632,7 @@ autocycler combine -a autocycler_out -i autocycler_out/clustering/qc_pass/cluste
 # Manual step: look for non-circularised pieces and re-run earlier steps if needed.
 ```
 
-Once this are completed, I can then copy final assembly:
+Once this is completed, I can then copy the final assembly:
 ```bash
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
     cd ~/2025-04_Autocycler_paper/"$s"
@@ -659,18 +664,46 @@ Some notes on specific tools I tried:
 
 # Count errors and mistakes
 
-Produce the main results table using my `assess_assembly.py` script to check against my ground-truth reference:
+Produce the main results table using my `assess_assembly.py` script to check against my ground-truth reference.
+
+Alignment can get a bit fussy when there are indels near the end of an alignment. Also, it is sometimes unclear whether a messy area should be aligned through or clipped off. For these reasons, I ran the script multiple times using different minimap2 preset
+
 ```bash
 cd ~/2025-04_Autocycler_paper
-./assess_assembly.py --header > results.tsv
+./assess_assembly.py --header > results_asm5.tsv
+./assess_assembly.py --header > results_asm10.tsv
+./assess_assembly.py --header > results_asm20.tsv
+./assess_assembly.py --header > results_map-ont.tsv
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
     for a in "$s"/assemblies/*.fasta; do
-        ./assess_assembly.py -r "$s"/reference.fasta -a "$a" >> results.tsv
+        ./assess_assembly.py -r "$s"/reference.fasta -a "$a" --alignment_preset asm5 >> results_asm5.tsv
+        ./assess_assembly.py -r "$s"/reference.fasta -a "$a" --alignment_preset asm10 >> results_asm10.tsv
+        ./assess_assembly.py -r "$s"/reference.fasta -a "$a" --alignment_preset asm20 >> results_asm20.tsv
+        ./assess_assembly.py -r "$s"/reference.fasta -a "$a" --alignment_preset map-ont >> results_map-ont.tsv
     done
 done
 ```
 
-Also running [Inspector](https://github.com/Maggi-Chen/Inspector) v1.3.1 and [CRAQ](https://github.com/JiaoLaboratory/CRAQ) v1.0.9, both of which assess assemblies using reads (not a ground-truth genome sequence):
+Combine the results table into one, keeping whichever produced the fewest total errors (sequence errors + extra bases + missing bases):
+```python
+import csv, sys
+
+files = ["results_asm5.tsv", "results_asm10.tsv", "results_asm20.tsv", "results_map-ont.tsv"]
+readers = [csv.reader(open(f), delimiter='\t') for f in files]
+writer = csv.writer(open("results.tsv", "wt"), delimiter='\t')
+
+writer.writerow(next(readers[0]))
+for r in readers[1:]:
+    next(r)
+
+for rows in zip(*readers):
+    sums = [sum(map(int, (r[6], r[11], r[12]))) for r in rows]
+    idx = min(range(len(sums)), key=lambda i: sums[i])
+    writer.writerow(rows[idx])
+    print(files[idx])
+```
+
+Also running [Inspector](https://github.com/Maggi-Chen/Inspector) v1.3.1, which assesses assemblies using reads, not a ground-truth genome sequence:
 ```bash
 cd ~/2025-04_Autocycler_paper
 mkdir inspector_results
@@ -682,7 +715,13 @@ for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providen
         rm -r inspector
     done
 done
+cd inspector_results
+grep "Total small-scale assembly error" *
+grep "Structural error" *
+```
 
+And [CRAQ](https://github.com/JiaoLaboratory/CRAQ) v1.0.9, which assesses assemblies using reads, not a ground-truth genome sequence:
+```bash
 cd ~/2025-04_Autocycler_paper
 mkdir craq_results
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
@@ -693,12 +732,47 @@ for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providen
         rm -r craq
     done
 done
+cd craq_results
+grep "Genome" * | cut -f6,7 | tr '(' '\t' | tr -d ')'
+```
+
+Also running BUSCO (using the closest match lineage for each genome), which assesses assemblies using expected single-copy genes. I use Dnaapler before BUSCO to ensure that genes do not get split across the start-end of circular sequences.
+```bash
+cd ~/2025-04_Autocycler_paper
+mkdir busco_results
+
+declare -A lineage=(
+  [Enterobacter_hormaechei]=enterobacter_odb12
+  [Klebsiella_pneumoniae]=enterobacteriaceae_odb12
+  [Listeria_innocua]=listeria_odb12
+  [Providencia_rettgeri]=morganellaceae_odb12
+  [Shigella_flexneri]=enterobacteriaceae_odb12
+)
+
+for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
+    busco -i "$s"/reference.fasta -m genome --cpu 24 --lineage_dataset ${lineage[$s]} --out_path busco
+    cp busco/BUSCO_*/short_summary.*.txt busco_results/"$s"_reference.txt
+    cp busco/BUSCO_*/short_summary.*.json busco_results/"$s"_reference.json
+    rm -r busco
+    for a in "$s"/assemblies/*.fasta; do
+        name=$(echo $a | sed 's|/assemblies/|_|' | sed 's|.fasta||')
+        dnaapler all -i "$a" -o dnaapler -t 16
+        busco -i dnaapler/dnaapler_reoriented.fasta -m genome --cpu 32 --lineage_dataset ${lineage[$s]} --out_path busco
+        cp busco/BUSCO_*/short_summary.*.txt busco_results/"$name".txt
+        cp busco/BUSCO_*/short_summary.*.json busco_results/"$name".json
+        rm -r dnaapler busco
+    done
+done
+
+cd ~/2025-04_Autocycler_paper/busco_results
+for f in $(ls *.txt | grep -v "reference"); do
+    awk '/Complete and duplicated BUSCOs/{d=$1} /Fragmented BUSCOs/{f=$1} /Missing BUSCOs/{m=$1} END{printf "%s\t%s\t%s\n", d, f, m}' "$f"
+done
 ```
 
 
 
 # Further investigations
-
 
 ## Autocycler sequence-level errors
 
@@ -726,9 +800,9 @@ done
 ```
 
 Error types, totaled across all 30 Autocycler assemblies:
-* Homopolymer-length errors: 67
-* Other indels: 13
-* Substitutions: 45
+* Homopolymer-length errors: 76 bp at 57 loci
+* Other indels: 15 bp at 15 loci
+* Substitutions: 44 bp at 44 loci
 
 Note that these total up to 125 errors, which slightly disagrees with the 123 errors in the results table. This is because the results table was populated by the `assess_assembly.py` script which in a couple cases interpreted a homopolymer-length error near the contig end as missing/extra bases.
 
@@ -738,7 +812,7 @@ Note that these total up to 125 errors, which slightly disagrees with the 123 er
 To check for structural errors in the Autocycler assemblies, I'll run Sniffles to check for structural variants.
 
 Tool versions used:
-* Sniffles 2.6.2
+* Sniffles 2.6.3
 
 ```bash
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
@@ -878,6 +952,287 @@ rm reference_chromosome.fasta reference_plasmid_*.fasta
 ```
 
 As expected, the excess errors were often found in large (>100 kbp) plasmids.
+
+
+## Low-depth Autocycler assemblies
+
+To test how well Autocycler handles lower read depths, I'll use the _Listeria_ genome, for the same reasons I used it in the Dragonflye parameter test: it's small (and therefore fast to assemble) and relatively uncomplicated.
+
+I used the same logic as is in my `autocycler_full.sh` script (used for the main analysis), with these exceptions:
+* I used the actual genome size for `autocycler subsample` instead of getting an automatic value with `autocycler helper genome_size`. This is because automatic genome sizes will be unreliable at very low depths.
+* With default parameters, Autocycler won't work with read sets shallower than 25x, due to the `--min_read_depth` parameter in `autocycler subsample`. So I used some custom logic here: set `--min_read_depth` to 90% of the read depth but no more than 25x.
+* I also used `--max_contigs 1000` with `autocycler compress` and `autocycler cluster` to force it to continue, even when the input assemblies were rubbish. This was to prevent Autocycler from erroring out so I could get a final Autocycler assembly for each read depth.
+
+Run the Autocycler assemblies:
+```zsh
+mkdir -p ~/2025-04_Autocycler_paper/Listeria_innocua/autocycler_low_depth
+cd ~/2025-04_Autocycler_paper/Listeria_innocua/autocycler_low_depth
+
+autocycler table > metrics.tsv
+
+threads=32
+jobs=4
+read_type=ont_r10
+
+genome_size=2972545
+full_read_bases=3347581958
+full_read_count=604429
+
+mean_read_length=$(bc -l <<< "$full_read_bases / $full_read_count")
+reads_per_1x=$(bc -l <<< "$genome_size / $mean_read_length")
+
+setopt NULL_GLOB
+
+for depth in {01..50}; do
+    read_count=$(printf '%.0f' "$(bc -l <<< "$reads_per_1x * $depth")")
+    mkdir "$depth"x
+    cd "$depth"x
+    zcat ../../reads_qc/nanopore.fastq.gz | paste - - - - | shuf | head -n "$read_count" | tr '\t' '\n' > reads.fastq
+
+    typeset -F2 min_read_depth
+    (( min_read_depth = depth * 0.9 ))
+    (( min_read_depth > 25 )) && (( min_read_depth = 25 ))
+
+    autocycler subsample --reads reads.fastq --out_dir subsampled_reads --genome_size "$genome_size" --min_read_depth "$min_read_depth" 2>> autocycler.stderr
+    mkdir -p assemblies
+    rm -f assemblies/jobs.txt
+    for assembler in raven miniasm flye metamdbg necat nextdenovo plassembler canu; do
+        for i in 01 02 03 04; do
+            echo "autocycler helper $assembler --reads subsampled_reads/sample_$i.fastq --out_prefix assemblies/${assembler}_$i --threads $threads --genome_size $genome_size --read_type $read_type" --min_depth_rel 0.1 >> assemblies/jobs.txt
+        done
+    done
+    nice -n 19 parallel --jobs "$jobs" --joblog assemblies/joblog.tsv --results assemblies/logs < assemblies/jobs.txt
+    for f in assemblies/plassembler*.fasta; do
+        sed -i 's/circular=True/circular=True Autocycler_cluster_weight=2/' "$f"
+    done
+    for f in assemblies/canu*.fasta assemblies/flye*.fasta; do
+        sed -i 's/^>.*$/& Autocycler_consensus_weight=2/' "$f"
+    done
+    rm subsampled_reads/*.fastq reads.fastq
+    autocycler compress -i assemblies -a autocycler_out --max_contigs 1000 2>> autocycler.stderr
+    autocycler cluster -a autocycler_out --max_contigs 1000 2>> autocycler.stderr
+    for c in autocycler_out/clustering/qc_pass/cluster_*; do
+        autocycler trim -c "$c" 2>> autocycler.stderr
+        autocycler resolve -c "$c" 2>> autocycler.stderr
+    done
+    autocycler combine -a autocycler_out -i autocycler_out/clustering/qc_pass/cluster_*/5_final.gfa 2>> autocycler.stderr
+    autocycler table -a . -n "$depth"x >> ../metrics.tsv
+    cd ..
+done
+```
+
+Assess the results:
+```bash
+cd ~/2025-04_Autocycler_paper/Listeria_innocua/autocycler_low_depth
+../../assess_assembly.py --header > results.tsv
+for a in */autocycler_out/consensus_assembly.fasta; do
+    ../../assess_assembly.py -r ../reference.fasta -a "$a" >> results.tsv
+done
+```
+
+Looking at the Autocycler logs, I can see that Flye and metaMDBG really carried the weight with lower depth assemblies (e.g. <20x). So I think a low-depth-optimised Autocycler pipeline based on those two assemblers would be possible, and it might (slightly) outperform the generic Autocycler pipeline I used here.
+
+
+## Mixed/contaminated Autocycler assemblies
+
+For this test, I'll mix the _Enterobacter hormaechei_ and _Klebsiella pneumoniae_ genomes at different ratios. I chose these two because they both have high-copy-number small plasmids that will likely come through, even at low depths. Also, they are both in the same family (Enterobacteriaceae) which may be close enough to cause issues with some long-read assemblers.
+
+```bash
+cd ~/2025-04_Autocycler_paper
+mkdir mixed_autocycler_assemblies
+cd mixed_autocycler_assemblies
+```
+
+This script (`mix_reads.py`) takes care of sampling reads at the appropriate depth:
+```python
+#!/usr/bin/env python3
+
+import gzip, random, sys
+
+step = int(sys.argv[1])
+steps = int(sys.argv[2])
+
+def sample_reads(fastq_gz, read_count):
+    with gzip.open(fastq_gz, 'rt') as f:
+        reads = [''.join(read) for read in zip(*[f]*4)]
+    random.shuffle(reads)
+    sys.stdout.write(''.join(reads[:read_count]))
+
+eh_reads = "/home/wickr/2025-04_Autocycler_paper/Enterobacter_hormaechei/reads_qc/nanopore.fastq.gz"
+kp_reads = "/home/wickr/2025-04_Autocycler_paper/Klebsiella_pneumoniae/reads_qc/nanopore.fastq.gz"
+
+eh_mean_read_len, kp_mean_read_len = 7048.01591486, 6081.33055366
+eh_genome_size, kp_genome_size = 5384747, 5990196
+
+x = step / steps
+eh_fraction = x**2 / (x**2 + (1-x)**2)
+kp_fraction = 1.0 - eh_fraction
+eh_depth = 100.0 * eh_fraction
+kp_depth = 100.0 * kp_fraction
+eh_read_count = int(round(eh_genome_size * eh_depth / eh_mean_read_len))
+kp_read_count = int(round(kp_genome_size * kp_depth / kp_mean_read_len))
+
+sample_reads(eh_reads, eh_read_count)
+sample_reads(kp_reads, kp_read_count)
+```
+
+Create the read sets:
+```bash
+for i in {00..50}; do
+    cd ~/2025-04_Autocycler_paper/mixed_autocycler_assemblies
+    mkdir "$i" && cd "$i"
+    ../mix_reads.py "$i" 50 | paste - - - - | sort | tr '\t' '\n' > reads.fastq
+done
+```
+
+Run Autocycler:
+```bash
+for i in {00..50}; do
+    cd ~/2025-04_Autocycler_paper/mixed_autocycler_assemblies/"$i"
+    autocycler_full.sh reads.fastq 32 4
+done
+```
+
+I'll assess the assemblies by categorising each contig as one of the following:
+* complete _Enterobacter hormaechei_ sequence
+* incomplete _Enterobacter hormaechei_ sequence
+* complete _Klebsiella pneumoniae_ sequence
+* incomplete _Klebsiella pneumoniae_ sequence
+
+I put this assessment code in `assess_mixed_assembly.py`:
+```python
+#!/usr/bin/env python3
+
+import sys
+import subprocess
+import tempfile
+from pathlib import Path
+
+def load_fasta(filename, prefix):
+    seqs = {}
+    with open(filename, "rt") as f:
+        while (header := f.readline()):
+            seq = f.readline().rstrip("\n")
+            name = prefix + header[1:].split()[0]
+            seqs[name] = (header.rstrip("\n"), seq)
+    return seqs
+
+def write_fasta(filename, seq):
+    with open(filename, "wt") as f:
+        f.write(f">seq\n{seq}\n")
+
+def mash_identity(seq_1, seq_2):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_dir = Path(temp_dir)
+        fasta_1, fasta_2 = temp_dir / "1.fasta", temp_dir / "2.fasta"
+        sketch = temp_dir / "mash.msh"
+        write_fasta(fasta_1, seq_1)
+        write_fasta(fasta_2, seq_2)
+        try:
+            subprocess.run(f"mash sketch -k 21 -s 10000 -o {sketch} {fasta_1}", shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            out = subprocess.check_output(f"mash screen {sketch} {fasta_2}", shell=True, text=True, stderr=subprocess.DEVNULL)
+        except subprocess.CalledProcessError:
+            return 0.0
+        try:
+            return float(out.split('\t')[0])
+        except ValueError:
+            return 0.0
+
+assembly = sys.argv[1]
+
+eh_ref = "/home/wickr/2025-04_Autocycler_paper/Enterobacter_hormaechei/reference.fasta"
+kp_ref = "/home/wickr/2025-04_Autocycler_paper/Klebsiella_pneumoniae/reference.fasta"
+
+eh_seqs = load_fasta(eh_ref, "eh_")
+kp_seqs = load_fasta(kp_ref, "kp_")
+ref_seqs = {**eh_seqs, **kp_seqs}
+
+eh_complete, eh_incomplete, kp_complete, kp_incomplete = 0, 0, 0, 0
+for assembly_name, assembly_contig in load_fasta(assembly, "").items():
+    assembly_header, assembly_seq = assembly_contig
+    best_mash, best_ref, best_complete = 0.0, None, False
+    for ref_name, ref_contig in ref_seqs.items():
+        ref_header, ref_seq = ref_contig
+        complete = ('circular=true' in assembly_header) and (0.9 < (len(assembly_seq) / len(ref_seq)) < 1.1)
+        mash = mash_identity(assembly_seq, ref_seq)
+        if mash > best_mash:
+            best_mash = mash
+            best_ref = ref_name
+            best_complete = complete
+    if best_ref is None:
+        continue
+    if best_ref.startswith('eh_') and best_complete:
+        eh_complete += len(assembly_seq)
+    if best_ref.startswith('eh_') and not best_complete:
+        eh_incomplete += len(assembly_seq)
+    if best_ref.startswith('kp_') and best_complete:
+        kp_complete += len(assembly_seq)
+    if best_ref.startswith('kp_') and not best_complete:
+        kp_incomplete += len(assembly_seq)
+
+print(f"{eh_complete}\t{eh_incomplete}\t{kp_complete}\t{kp_incomplete}")
+```
+
+```bash
+cd ~/2025-04_Autocycler_paper/mixed_autocycler_assemblies
+for i in {00..50}; do
+    printf "$i\t"
+    ./assess_mixed_assembly.py "$i"/autocycler_out/consensus_assembly.fasta
+done
+```
+
+
+## Autocycler BUSCO errors
+
+I was curious why a few of the Autocycler assemblies had more BUSCO errors than the reference genome. 12 had an extra fragmented BUSCO, and 4 had an extra missing BUSCO.
+
+I suspect this might be due to the random starting positions, so I'll run these genomes through Dnaapler and see how that changes the BUSCO results:
+```bash
+cd ~/2025-04_Autocycler_paper
+mkdir autocycler_busco_test
+cd ~/2025-04_Autocycler_paper/autocycler_busco_test
+
+cp ../Enterobacter_hormaechei/assemblies/autocycler_1.fasta Enterobacter_hormaechei_autocycler_1.fasta
+cp ../Enterobacter_hormaechei/assemblies/autocycler_2.fasta Enterobacter_hormaechei_autocycler_2.fasta
+cp ../Enterobacter_hormaechei/assemblies/autocycler_5.fasta Enterobacter_hormaechei_autocycler_5.fasta
+cp ../Enterobacter_hormaechei/assemblies/autocycler_6.fasta Enterobacter_hormaechei_autocycler_6.fasta
+cp ../Enterobacter_hormaechei/assemblies/autocycler_manual_1.fasta Enterobacter_hormaechei_autocycler_manual_1.fasta
+cp ../Enterobacter_hormaechei/assemblies/autocycler_manual_2.fasta Enterobacter_hormaechei_autocycler_manual_2.fasta
+cp ../Enterobacter_hormaechei/assemblies/autocycler_manual_5.fasta Enterobacter_hormaechei_autocycler_manual_5.fasta
+cp ../Enterobacter_hormaechei/assemblies/autocycler_manual_6.fasta Enterobacter_hormaechei_autocycler_manual_6.fasta
+cp ../Klebsiella_pneumoniae/assemblies/autocycler_5.fasta Klebsiella_pneumoniae_autocycler_5.fasta
+cp ../Klebsiella_pneumoniae/assemblies/autocycler_manual_5.fasta Klebsiella_pneumoniae_autocycler_manual_5.fasta
+cp ../Listeria_innocua/assemblies/autocycler_4.fasta Listeria_innocua_autocycler_4.fasta
+cp ../Listeria_innocua/assemblies/autocycler_manual_4.fasta Listeria_innocua_autocycler_manual_4.fasta
+cp ../Listeria_innocua/assemblies/autocycler_3.fasta Listeria_innocua_autocycler_3.fasta
+cp ../Listeria_innocua/assemblies/autocycler_manual_3.fasta Listeria_innocua_autocycler_manual_3.fasta
+cp ../Providencia_rettgeri/assemblies/autocycler_1.fasta Providencia_rettgeri_autocycler_1.fasta
+cp ../Providencia_rettgeri/assemblies/autocycler_manual_1.fasta Providencia_rettgeri_autocycler_manual_1.fasta
+
+for f in *.fasta; do
+    dnaapler all -i "$f" -o dnaapler -t 16
+    seqtk seq dnaapler/dnaapler_reoriented.fasta > dnaapler_"$f"
+    rm -r dnaapler
+done
+
+mkdir busco_results
+
+declare -A lineage=(
+  [Enterobacter_hormaechei]=enterobacter_odb12
+  [Klebsiella_pneumoniae]=enterobacteriaceae_odb12
+  [Listeria_innocua]=listeria_odb12
+  [Providencia_rettgeri]=morganellaceae_odb12
+  [Shigella_flexneri]=enterobacteriaceae_odb12
+)
+
+for f in *.fasta; do
+    s=${${${f:t}#dnaapler_}%%_autocycler*}
+    busco -i "$f" -m genome --cpu 24 --lineage_dataset ${lineage[$s]} --out_path busco
+    cp busco/BUSCO_*/short_summary.*.txt busco_results/"$f".txt
+    cp busco/BUSCO_*/short_summary.*.json busco_results/"$f".json
+    rm -r busco
+done
+```
 
 
 

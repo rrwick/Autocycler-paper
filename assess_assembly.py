@@ -43,6 +43,8 @@ def get_arguments():
 
     parser.add_argument('--header', action='store_true',
                         help='Print the header line')
+    parser.add_argument('--alignment_preset', type=str, default='asm5',
+                        help='Minimap2 alignment preset')
     parser.add_argument('--threads', type=int, default=4,
                         help='Number of minimap2 alignment threads')
 
@@ -64,13 +66,17 @@ def main():
     total_ref_size = sum(len(seq) for _, seq in ref_seqs)
     total_assembly_size = sum(len(seq) for _, seq in assembly_seqs)
 
-    raw_alignments = get_alignments(ref_seqs, args.assembly, args.threads)
+    raw_alignments = get_alignments(ref_seqs, args.assembly, args.threads, args.alignment_preset)
     raw_alignments = sorted(raw_alignments, key=lambda a: (-a.ref_align_length, a.ref_start))
     alignments = filter_alignments(raw_alignments, ref_seqs)
 
     errors = sum(a.errors for a in alignments)
+    substitutions = sum(a.total_substitutions() for a in alignments)
+    insertions = sum(a.total_insertions() for a in alignments)
+    deletions = sum(a.total_deletions() for a in alignments)
+    assert errors == substitutions + insertions + deletions
     extra_bases, missing_bases = count_extra_missing_bases(ref_seqs, assembly_seqs, alignments)
-    max_indel = max(a.get_max_indel() for a in alignments)
+    max_indel = max(a.max_indel() for a in alignments)
 
     fragmentation_count = count_fragmentations(alignments)
     missing_refs = count_missing_references(raw_alignments, ref_seqs)
@@ -79,22 +85,24 @@ def main():
 
     print(f'{args.reference}\t{len(ref_seqs)}\t{total_ref_size}\t'
           f'{args.assembly}\t{len(assembly_seqs)}\t{total_assembly_size}\t'
-          f'{errors}\t{max_indel}\t{extra_bases}\t{missing_bases}\t'
+          f'{errors}\t{substitutions}\t{insertions}\t{deletions}\t'
+          f'{max_indel}\t{extra_bases}\t{missing_bases}\t'
           f'{fragmentation_count}\t{missing_refs}\t{junk_contigs}\t{redundant_contigs}')
 
 
 def print_header():
     print('reference_filename\treference_sequence_count\treference_size\t'
           'assembly_filename\tassembly_sequence_count\tassembly_size\t'
-          'error_count\tlargest_indel\textra_assembly_bases\tmissing_assembly_bases\t'
+          'error_count\tsubstitutions\tinsertions\tdeletions\t'
+          'largest_indel\textra_assembly_bases\tmissing_assembly_bases\t'
           'assembly_fragmentation_count\tmissing_reference_sequences\t'
           'junk_contig_count\tredundant_contig_count')
 
 
-def get_alignments(ref_seqs, assembly_filename, threads):
+def get_alignments(ref_seqs, assembly_filename, threads, alignment_preset):
     with tempfile.TemporaryDirectory() as temp_dir:
         multipled_ref_filename = multiply_reference(ref_seqs, temp_dir)
-        p = subprocess.run(['minimap2', '-c', '-t', str(threads), '-x', 'asm5', '--eqx', '-H',
+        p = subprocess.run(['minimap2', '-c', '-t', str(threads), '-x', alignment_preset, '--eqx', '-H',
                              multipled_ref_filename, assembly_filename],
                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         output = p.stdout.decode()
@@ -285,8 +293,17 @@ class Alignment(object):
     def __repr__(self):
         return f'{self.query_name}: {self.query_start}-{self.query_end}; {self.ref_name}: {self.ref_start}-{self.ref_end}; {self.cigar}'
 
-    def get_max_indel(self):
-        return max((int(num) for num, op in re.findall(r'(\d+)([ID])', self.cigar)), default=0)
+    def max_indel(self):
+        return max((int(n) for n, op in re.findall(r'(\d+)([ID])', self.cigar)), default=0)
+
+    def total_substitutions(self):
+        return sum(int(n) for n in re.findall(r'(\d+)X', self.cigar))
+
+    def total_insertions(self):
+        return sum(int(n) for n in re.findall(r'(\d+)I', self.cigar))
+
+    def total_deletions(self):
+        return sum(int(n) for n in re.findall(r'(\d+)D', self.cigar))
 
 
 if __name__ == '__main__':

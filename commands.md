@@ -766,7 +766,7 @@ done
 
 cd ~/2025-04_Autocycler_paper/busco_results
 for f in $(ls *.txt | grep -v "reference"); do
-    awk '/Complete and duplicated BUSCOs/{d=$1} /Fragmented BUSCOs/{f=$1} /Missing BUSCOs/{m=$1} END{printf "%s\t%s\t%s\n", d, f, m}' "$f"
+    awk '/Complete and single-copy BUSCOs/{d=$1} /Complete and duplicated BUSCOs/{d=$1} /Fragmented BUSCOs/{f=$1} /Missing BUSCOs/{m=$1} END{printf "%s\t%s\t%s\n", d, f, m}' "$f"
 done
 ```
 

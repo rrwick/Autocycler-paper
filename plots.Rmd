@@ -32,7 +32,6 @@ df$`Total BUSCO groups` <- df$`Complete and single-copy BUSCOs` + df$`Complete a
 df$Assembler <- factor(df$Assembler, levels = c("Canu", "Flye", "hifiasm", "LJA", "metaMDBG", "miniasm", "Myloasm", "NECAT", "NextDenovo", "Raven", "wtdbg2", "Dragonflye", "Hybracter", "MAECI", "Autocycler", "Autocycler-curated"))
 ```
 
-
 ```{r definitions}
 y_breaks <- c(0, 10, 100, 1000, 10000, 100000, 1000000)
 y_minor_breaks <- c(0:10, c(outer(2:10, 10^(1:5), `*`)))
@@ -109,7 +108,7 @@ p2 <- ggplot(df, aes(x = Assembler, y = `Total error count`, fill = assembler_ty
   scale_x_discrete(labels = x_axis_labels) +
   scale_fill_manual(values = assembler_type_colours) +
   my_theme +
-  labs(title="B. Total errors (sequence errors + missing bases + extra bases)", x=NULL, y="Errors per assembly")
+  labs(title="B. Total errors (sequence errors + structural errors)", x=NULL, y="Errors per assembly")
 
 plot_grid(p1, p2, ncol=1, rel_heights=c(0.87, 1), align="v")
 ```

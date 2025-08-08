@@ -1,11 +1,11 @@
-These are the commands I ran for conducting assembler comparison in the Autocycler paper.
+These are the commands I ran for conducting all of the analyses in the Autocycler paper.
 
 
 
 
 # Basecall ONT reads
 
-Did the basecalling on Spartan because it has big GPUs:
+I did the basecalling on [Spartan](https://dashboard.hpc.unimelb.edu.au) because it has big GPUs:
 ```bash
 cd /data/scratch/projects/punim1894
 mkdir O2024-029; cd O2024-029
@@ -13,7 +13,7 @@ scp -r roosta:/home/damg/data/O2024-029/pod5 .
 sbatch --job-name=dorado --time=40:00:00 --ntasks=1 --mem=64000 --cpus-per-task=8 -p gpu-h100 --gres=gpu:1 --wrap "~/programs/dorado-0.9.5-linux-x64/bin/dorado basecaller --kit-name SQK-RBK114-96 sup pod5 > reads.bam"
 ```
 
-Demux:
+Demultiplex the reads:
 ```bash
 cd /data/scratch/projects/punim1894/O2024-029
 sbatch --job-name=dorado --time=2:00:00 --ntasks=1 --mem=64000 --cpus-per-task=8 --wrap "~/programs/dorado-0.9.5-linux-x64/bin/dorado summary reads.bam > summary.tsv"
@@ -451,7 +451,7 @@ for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providen
 done
 ```
 
-For these assemblies, I'm using [Autocycler helper](https://github.com/rrwick/Autocycler/wiki/Autocycler-helper). It mostly just run the assemblies with default settings, but sometimes does a little bit extra. I also use `--min_depth_rel 0.1` to discard low-depth contigs when that information is available - this is mostly helpful for metaMGBG which is a metagenome assembler and therefore more likely to include low-depth stuff.
+For these assemblies, I'm using [Autocycler helper](https://github.com/rrwick/Autocycler/wiki/Autocycler-helper). It mostly just run the assemblies with default settings, but sometimes does a little bit extra. I also use `--min_depth_rel 0.1` to discard low-depth contigs when that information is available - this is mostly helpful for metaMGBG and Myloasm which are metagenome assemblers and therefore more likely to include low-depth stuff.
 
 ```bash
 threads=32
@@ -664,10 +664,9 @@ Some notes on specific tools I tried:
 
 # Count errors and mistakes
 
-Produce the main results table using my `assess_assembly.py` script to check against my ground-truth reference.
+I produced the main results table using my `assess_assembly.py` script to check against my ground-truth reference.
 
-Alignment can get a bit fussy when there are indels near the end of an alignment. Also, it is sometimes unclear whether a messy area should be aligned through or clipped off. For these reasons, I ran the script multiple times using different minimap2 preset
-
+Alignment can get a bit fussy when there are indels near the end of an alignment. Also, it is sometimes unclear whether a messy area should be aligned through or clipped off. For these reasons, I ran the script multiple times using different minimap2 preset:
 ```bash
 cd ~/2025-04_Autocycler_paper
 ./assess_assembly.py --header > results_asm5.tsv
@@ -684,7 +683,7 @@ for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providen
 done
 ```
 
-Combine the results table into one, keeping whichever produced the fewest total errors (sequence errors + extra bases + missing bases):
+I then combined the results tables into one, keeping whichever minimap2 preset produced the fewest total errors (sequence errors + extra bases + missing bases):
 ```python
 import csv, sys
 
@@ -703,7 +702,7 @@ for rows in zip(*readers):
     print(files[idx])
 ```
 
-Also running [Inspector](https://github.com/Maggi-Chen/Inspector) v1.3.1, which assesses assemblies using reads, not a ground-truth genome sequence:
+I also ran [Inspector](https://github.com/Maggi-Chen/Inspector) v1.3.1, which assesses assemblies using long reads, not a ground-truth genome sequence:
 ```bash
 cd ~/2025-04_Autocycler_paper
 mkdir inspector_results
@@ -720,7 +719,7 @@ grep "Total small-scale assembly error" *
 grep "Structural error" *
 ```
 
-And [CRAQ](https://github.com/JiaoLaboratory/CRAQ) v1.0.9, which assesses assemblies using reads, not a ground-truth genome sequence:
+And [CRAQ](https://github.com/JiaoLaboratory/CRAQ) v1.0.9, which assesses assemblies using reads (both short and long), not a ground-truth genome sequence:
 ```bash
 cd ~/2025-04_Autocycler_paper
 mkdir craq_results
@@ -736,7 +735,7 @@ cd craq_results
 grep "Genome" * | cut -f6,7 | tr '(' '\t' | tr -d ')'
 ```
 
-Also running BUSCO (using the closest match lineage for each genome), which assesses assemblies using expected single-copy genes. I use Dnaapler before BUSCO to ensure that genes do not get split across the start-end of circular sequences.
+And [BUSCO](https://gitlab.com/ezlab/busco) v6.0.0 (using the closest match lineage for each genome), which assesses assemblies using expected single-copy genes. I used Dnaapler before BUSCO to ensure that genes do not get split across the start-end of circular sequences:
 ```bash
 cd ~/2025-04_Autocycler_paper
 mkdir busco_results
@@ -766,9 +765,10 @@ done
 
 cd ~/2025-04_Autocycler_paper/busco_results
 for f in $(ls *.txt | grep -v "reference"); do
-    awk '/Complete and single-copy BUSCOs/{d=$1} /Complete and duplicated BUSCOs/{d=$1} /Fragmented BUSCOs/{f=$1} /Missing BUSCOs/{m=$1} END{printf "%s\t%s\t%s\n", d, f, m}' "$f"
+    awk '/Complete and single-copy BUSCOs/{s=$1} /Complete and duplicated BUSCOs/{d=$1} /Fragmented BUSCOs/{f=$1} /Missing BUSCOs/{m=$1} END{printf "%s\t%s\t%s\t%s\n", s, d, f, m}' "$f"
 done
 ```
+
 
 
 
@@ -776,7 +776,7 @@ done
 
 ## Autocycler sequence-level errors
 
-To allow me to manually inspect the remaining sequence-level errors in Autocycler assemblies, I made Dnaapler-reoriented versions each, and where Dnaapler failed to find a starting position, I manually rotated any sequences to match the reference.
+To allow me to manually inspect the remaining sequence-level errors in Autocycler assemblies, I made Dnaapler-reoriented versions each, and where Dnaapler failed to find a starting position (some small plasmids), I manually rotated any sequences to match the reference.
 ```bash
 for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providencia_rettgeri Shigella_flexneri; do
     cd ~/2025-04_Autocycler_paper/"$s"/assemblies
@@ -804,12 +804,10 @@ Error types, totaled across all 30 Autocycler assemblies:
 * Other indels: 15 bp at 15 loci
 * Substitutions: 44 bp at 44 loci
 
-Note that these total up to 125 errors, which slightly disagrees with the 123 errors in the results table. This is because the results table was populated by the `assess_assembly.py` script which in a couple cases interpreted a homopolymer-length error near the contig end as missing/extra bases.
-
 
 ## Autocycler structural errors
 
-To check for structural errors in the Autocycler assemblies, I'll run Sniffles to check for structural variants.
+To check for structural errors in the Autocycler assemblies, I ran Sniffles to check for structural variants.
 
 Tool versions used:
 * Sniffles 2.6.3
@@ -826,7 +824,7 @@ for s in Enterobacter_hormaechei Klebsiella_pneumoniae Listeria_innocua Providen
 done
 ```
 
-All of the Sniffles VCFs were empty, so that's good! But just to check with some positive controls, I'll manually make some structural variants and ensure that Sniffles does find them:
+All of the Sniffles VCFs were empty, so that's good! But just to check with some positive controls, I manually made some structural variants to ensure that Sniffles does find them:
 ```bash
 cd ~/2025-04_Autocycler_paper/Enterobacter_hormaechei/autocycler_1_manual
 cp rotated.fasta rotated_with_insertion.fasta
@@ -956,7 +954,7 @@ As expected, the excess errors were often found in large (>100 kbp) plasmids.
 
 ## Low-depth Autocycler assemblies
 
-To test how well Autocycler handles lower read depths, I'll use the _Listeria_ genome, for the same reasons I used it in the Dragonflye parameter test: it's small (and therefore fast to assemble) and relatively uncomplicated.
+To test how well Autocycler handles lower read depths, I used the _Listeria_ genome, for the same reasons I used it in the Dragonflye parameter test: it's small (and therefore fast to assemble) and relatively uncomplicated.
 
 I used the same logic as is in my `autocycler_full.sh` script (used for the main analysis), with these exceptions:
 * I used the actual genome size for `autocycler subsample` instead of getting an automatic value with `autocycler helper genome_size`. This is because automatic genome sizes will be unreliable at very low depths.
@@ -1035,7 +1033,7 @@ Looking at the Autocycler logs, I can see that Flye and metaMDBG really carried 
 
 ## Mixed/contaminated Autocycler assemblies
 
-For this test, I'll mix the _Enterobacter hormaechei_ and _Klebsiella pneumoniae_ genomes at different ratios. I chose these two because they both have high-copy-number small plasmids that will likely come through, even at low depths. Also, they are both in the same family (Enterobacteriaceae) which may be close enough to cause issues with some long-read assemblers.
+For this test, I mixed the _Enterobacter hormaechei_ and _Klebsiella pneumoniae_ genomes at different ratios. I chose these two because they both have high-copy-number small plasmids that will likely appear in the assembly, even at low depths. Also, they are both in the same family (Enterobacteriaceae) which may be close enough to cause issues with some long-read assemblers.
 
 ```bash
 cd ~/2025-04_Autocycler_paper
@@ -1093,7 +1091,7 @@ for i in {00..50}; do
 done
 ```
 
-I'll assess the assemblies by categorising each contig as one of the following:
+I assessed the assemblies by categorising each contig as one of the following:
 * complete _Enterobacter hormaechei_ sequence
 * incomplete _Enterobacter hormaechei_ sequence
 * complete _Klebsiella pneumoniae_ sequence
@@ -1178,59 +1176,6 @@ cd ~/2025-04_Autocycler_paper/mixed_autocycler_assemblies
 for i in {00..50}; do
     printf "$i\t"
     ./assess_mixed_assembly.py "$i"/autocycler_out/consensus_assembly.fasta
-done
-```
-
-
-## Autocycler BUSCO errors
-
-I was curious why a few of the Autocycler assemblies had more BUSCO errors than the reference genome. 12 had an extra fragmented BUSCO, and 4 had an extra missing BUSCO.
-
-I suspect this might be due to the random starting positions, so I'll run these genomes through Dnaapler and see how that changes the BUSCO results:
-```bash
-cd ~/2025-04_Autocycler_paper
-mkdir autocycler_busco_test
-cd ~/2025-04_Autocycler_paper/autocycler_busco_test
-
-cp ../Enterobacter_hormaechei/assemblies/autocycler_1.fasta Enterobacter_hormaechei_autocycler_1.fasta
-cp ../Enterobacter_hormaechei/assemblies/autocycler_2.fasta Enterobacter_hormaechei_autocycler_2.fasta
-cp ../Enterobacter_hormaechei/assemblies/autocycler_5.fasta Enterobacter_hormaechei_autocycler_5.fasta
-cp ../Enterobacter_hormaechei/assemblies/autocycler_6.fasta Enterobacter_hormaechei_autocycler_6.fasta
-cp ../Enterobacter_hormaechei/assemblies/autocycler_manual_1.fasta Enterobacter_hormaechei_autocycler_manual_1.fasta
-cp ../Enterobacter_hormaechei/assemblies/autocycler_manual_2.fasta Enterobacter_hormaechei_autocycler_manual_2.fasta
-cp ../Enterobacter_hormaechei/assemblies/autocycler_manual_5.fasta Enterobacter_hormaechei_autocycler_manual_5.fasta
-cp ../Enterobacter_hormaechei/assemblies/autocycler_manual_6.fasta Enterobacter_hormaechei_autocycler_manual_6.fasta
-cp ../Klebsiella_pneumoniae/assemblies/autocycler_5.fasta Klebsiella_pneumoniae_autocycler_5.fasta
-cp ../Klebsiella_pneumoniae/assemblies/autocycler_manual_5.fasta Klebsiella_pneumoniae_autocycler_manual_5.fasta
-cp ../Listeria_innocua/assemblies/autocycler_4.fasta Listeria_innocua_autocycler_4.fasta
-cp ../Listeria_innocua/assemblies/autocycler_manual_4.fasta Listeria_innocua_autocycler_manual_4.fasta
-cp ../Listeria_innocua/assemblies/autocycler_3.fasta Listeria_innocua_autocycler_3.fasta
-cp ../Listeria_innocua/assemblies/autocycler_manual_3.fasta Listeria_innocua_autocycler_manual_3.fasta
-cp ../Providencia_rettgeri/assemblies/autocycler_1.fasta Providencia_rettgeri_autocycler_1.fasta
-cp ../Providencia_rettgeri/assemblies/autocycler_manual_1.fasta Providencia_rettgeri_autocycler_manual_1.fasta
-
-for f in *.fasta; do
-    dnaapler all -i "$f" -o dnaapler -t 16
-    seqtk seq dnaapler/dnaapler_reoriented.fasta > dnaapler_"$f"
-    rm -r dnaapler
-done
-
-mkdir busco_results
-
-declare -A lineage=(
-  [Enterobacter_hormaechei]=enterobacter_odb12
-  [Klebsiella_pneumoniae]=enterobacteriaceae_odb12
-  [Listeria_innocua]=listeria_odb12
-  [Providencia_rettgeri]=morganellaceae_odb12
-  [Shigella_flexneri]=enterobacteriaceae_odb12
-)
-
-for f in *.fasta; do
-    s=${${${f:t}#dnaapler_}%%_autocycler*}
-    busco -i "$f" -m genome --cpu 24 --lineage_dataset ${lineage[$s]} --out_path busco
-    cp busco/BUSCO_*/short_summary.*.txt busco_results/"$f".txt
-    cp busco/BUSCO_*/short_summary.*.json busco_results/"$f".json
-    rm -r busco
 done
 ```
 

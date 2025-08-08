@@ -1221,3 +1221,25 @@ done
 find reads_subsampled/ -type f | sort | tar -Jcvf reads_subsampled.tar.xz --owner=0 --group=0 -T -
 rm -r reads_subsampled
 ```
+
+Low-depth Autocycler assemblies:
+```bash
+cd ~/2025-04_Autocycler_paper
+mkdir low_depth_autocycler
+for d in {01..50}; do
+    cp ~/2025-04_Autocycler_paper/Listeria_innocua/autocycler_low_depth/"$d"x/autocycler_out/consensus_assembly.fasta low_depth_autocycler/"$d".fasta
+done
+find low_depth_autocycler/ -type f | sort | tar -Jcvf low_depth_autocycler.tar.xz --owner=0 --group=0 -T -
+rm -r low_depth_autocycler
+```
+
+Mixed Autocycler assemblies:
+```bash
+cd ~/2025-04_Autocycler_paper
+mkdir mixed_autocycler
+for i in {01..50}; do
+    cp ~/2025-04_Autocycler_paper/mixed_autocycler_assemblies/"$i"/autocycler_out/consensus_assembly.fasta mixed_autocycler/"$i".fasta
+done
+find mixed_autocycler/ -type f | sort | tar -Jcvf mixed_autocycler.tar.xz --owner=0 --group=0 -T -
+rm -r mixed_autocycler
+```

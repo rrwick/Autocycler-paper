@@ -12,5 +12,6 @@ This repository contains:
 * [`commands.md`](commands.md): methods and exact commands for all analyses in the manuscript.
 * [`assess_assembly.py`](assess_assembly.py): the Python script used to quantify assembly accuracy.
 * [`plots.Rmd`](plots.Rmd): R code for generating the figures.
+* [`Autocycler-0.5.1.tar.gz`](Autocycler-0.5.1.tar.gz): source code for the version of Autocycler used in the manuscript.
 
 The datasets used in this study (reads, assemblies and reference genomes) are too large to host on GitHub but are available from [this figshare repository](https://figshare.unimelb.edu.au/projects/Autocycler/247142). While the five isolates are also available via the SRA (accessions listed in Table S1), the ONT reads were re-basecalled using the latest version of Dorado. The figshare repository provides the exact post-QC read sets used in this manuscript.

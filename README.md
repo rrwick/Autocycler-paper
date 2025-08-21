@@ -2,7 +2,7 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.16916187.svg)](https://doi.org/10.5281/zenodo.16916187)
 
-This repository contains the supplementary data for our manuscript describing Autocycler:<br>[Wick RR, Stinear TP. Autocycler: long-read consensus assembly for bacterial genomes. bioRxiv. 2025. doi:10.1101/2025.05.12.653612](https://doi.org/10.1101/2025.05.12.653612)
+This repository contains the supplementary data for our manuscript describing Autocycler:<br>[Wick RR, Howden BP, Stinear TP. Autocycler: long-read consensus assembly for bacterial genomes. bioRxiv. 2025. doi:10.1101/2025.05.12.653612](https://doi.org/10.1101/2025.05.12.653612)
 
 If you are looking for Autocycler itself (i.e. the software, not the manuscript), please see the [Autocycler GitHub repository](https://github.com/rrwick/Autocycler).
 

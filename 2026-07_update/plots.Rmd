@@ -1,0 +1,306 @@
+---
+title: "Autocycler benchmark - updates"
+date: "2026-07-21"
+author: "Ryan Wick"
+output:
+  html_document:
+    pandoc_args: ["+RTS", "-K64m", "-RTS", "--self-contained",]
+    df_print: paged
+    keep_md: false
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r}
+library(tidyverse)
+library(knitr)
+library(cowplot)
+library(readxl)
+
+opts_chunk$set( dpi = 300, fig.path = "plots/", dev=c('png','pdf'), dev.args = list(bg = "transparent"), echo = TRUE, warning = FALSE, message = FALSE)
+pdf.options(useDingbats = FALSE)
+```
+
+
+```{r load_data}
+df <- read_excel("results.xlsx", skip = 1)
+
+df$`Total error count` <- df$`Error count` + df$`Extra assembly bases` + df$`Missing assembly bases`
+# df$`Total BUSCO groups` <- df$`Complete and single-copy BUSCOs` + df$`Complete and duplicated BUSCOs` + df$`Fragmented BUSCOs` + df$`Missing BUSCOs`
+
+df$Assembler <- paste(df$Assembler, df$Version)
+
+df$Assembler <- factor(df$Assembler, levels = c("Canu v2.3", "Flye v2.9.6", "hifiasm v0.25.0", "Ilesta v1.2.1", "LJA v0.2", "metaMDBG v1.4", "miniasm v0.3", "Myloasm v0.6.0", "NECAT v20200803", "NextDenovo v2.5.2", "Raven v1.8.3", "wtdbg2 v2.5", "Dragonflye v1.2.1", "Hybracter v0.14.0", "MAECI f1eb3d7", "Autocycler v0.6.2", "Autocycler-fast v0.6.2"))
+```
+
+```{r definitions}
+y_breaks <- c(0, 10, 100, 1000, 10000, 100000, 1000000)
+y_minor_breaks <- c(0:10, c(outer(2:10, 10^(1:5), `*`)))
+y_labels <- c("0", "10", "100", "1k", "10k", "100k", "1M")
+
+x_axis_labels <- function(x) {
+  x <- as.character(x)
+  x[x == "Canu v2.3"] <- "Canu\nv2.3"
+  x[x == "Flye v2.9.6"] <- "Flye\nv2.9.6"
+  x[x == "hifiasm v0.25.0"] <- "hifiasm\nv0.25.0"
+  x[x == "Ilesta v1.2.1"] <- "Ilesta\nv1.2.1"
+  x[x == "LJA v0.2"] <- "LJA\nv0.2"
+  x[x == "metaMDBG v1.1"] <- "meta-\nMDBG\nv1.1"
+  x[x == "metaMDBG v1.2"] <- "meta-\nMDBG\nv1.2"
+  x[x == "metaMDBG v1.4"] <- "meta-\nMDBG\nv1.4"
+  x[x == "miniasm v0.3"] <- "miniasm\nv0.3"
+  x[x == "Myloasm v0.1.0"] <- "Mylo-\nasm\nv0.1.0"
+  x[x == "Myloasm v0.2.0"] <- "Mylo-\nasm\nv0.2.0"
+  x[x == "Myloasm v0.6.0"] <- "Mylo-\nasm\nv0.6.0"
+  x[x == "NECAT v20200803"] <- "NECAT\nv2020\n0803"
+  x[x == "NextDenovo v2.5.2"] <- "Next-\nDenovo\nv2.5.2"
+  x[x == "Raven v1.8.3"] <- "Raven\nv1.8.3"
+  x[x == "wtdbg2 v2.5"] <- "wtdbg2\nv2.5"
+  x[x == "Dragonflye v1.2.1"] <- "Dragon-\nflye\nv1.2.1"
+  x[x == "Hybracter v0.11.2"] <- "Hy-\nbracter\nv0.11.2"
+  x[x == "Hybracter v0.14.0"] <- "Hy-\nbracter\nv0.14.0"
+  x[x == "MAECI f1eb3d7"] <- "MAECI\nf1eb3d7"
+  x[x == "Autocycler v0.6.2"] <- "Auto-\ncycler\nv0.6.2"
+  x[x == "Autocycler-fast v0.6.2"] <- "Auto-\ncycler\nfast\nv0.6.2"
+  x
+}
+
+assembler_type <- function(x) {
+  factor(case_when(
+    x %in% c("Canu v2.3", "Flye v2.9.6", "hifiasm v0.25.0", "Ilesta v1.2.1", "LJA v0.2", "metaMDBG v1.1", "metaMDBG v1.2", "metaMDBG v1.4", "miniasm v0.3", "Myloasm v0.1.0", "Myloasm v0.2.0", "Myloasm v0.6.0", "NECAT v20200803", "NextDenovo v2.5.2", "Raven v1.8.3", "wtdbg2 v2.5") ~ "Single-tool\nassembly",
+    x %in% c("Dragonflye v1.2.1", "Hybracter v0.11.2", "Hybracter v0.14.0") ~ "Assembly\npipeline",
+    x %in% c("MAECI f1eb3d7", "Autocycler v0.6.2", "Autocycler-fast v0.6.2") ~ "Consensus\nassembly"
+  ), levels = c("Single-tool\nassembly", "Assembly\npipeline", "Consensus\nassembly"))
+}
+
+assembler_type_colours <- c("Single-tool\nassembly" = "#8da0cb",
+                            "Assembly\npipeline"    = "#fc8d62",
+                            "Consensus\nassembly"   = "#66c2a5")
+
+light_theme <- theme_bw() +
+  theme(legend.position = "none",
+        axis.ticks.x = element_blank(),
+        panel.grid.minor = element_line(linewidth = 0.1),
+        axis.text = element_text(colour = "black"),
+        panel.grid.major.x = element_blank())
+
+light_theme_no_background <- theme_bw() +
+  theme(plot.background = element_blank(),
+        legend.position = "none",
+        axis.ticks.x = element_blank(),
+        panel.grid.minor = element_line(linewidth = 0.1),
+        axis.text = element_text(colour = "black"),
+        panel.grid.major.x = element_blank())
+
+dark_theme <- theme_bw() +
+  theme(plot.background = element_blank(),
+        panel.background = element_rect(fill = "#161616", color = NA),
+        panel.border = element_rect(color = "#d8d8d8", fill = NA),
+        axis.title = element_text(color = "#ffffff"),
+        axis.text = element_text(color = "#bababa"),
+        axis.ticks = element_line(color = "#d8d8d8"),
+        axis.ticks.x = element_blank(),
+        panel.grid.major = element_line(color = "#1d2026"),
+        panel.grid.minor = element_line(color = "#1d2026"),
+        plot.title = element_text(color = "#ffffff"),
+        plot.subtitle = element_text(color = "#bababa"),
+        plot.caption = element_text(color = "#bababa"),
+        legend.position = "none")
+```
+
+Most of the plots span a wide range, so I often use a pseudo-log transform on the y axis.
+
+To keep the boxplots simpler, I want the whiskers to extend to min/max values (instead of having outlier points). When all of the data has some range, I can do this with `geom_boxplot(coef = Inf)`. But when some assemblers have no range (e.g. all values are zero), I needed to do a workaround by manually passing the ymin/lower/middle/upper/ymax values to `geom_boxplot`.
+
+Figure 2: sequence errors and total errors
+```{r figure_2, fig.width = 9.5, fig.height = 7}
+p1 <- ggplot(df, aes(x = Assembler, y = `Error count`, fill = assembler_type(Assembler))) +
+  geom_boxplot(coef = Inf) +
+  scale_y_continuous(trans = scales::pseudo_log_trans(base = 10), expand = c(0, 0), limits = c(0, 200000),
+                     breaks = y_breaks, minor_breaks = y_minor_breaks, labels = y_labels) +
+  scale_x_discrete(labels = x_axis_labels) +
+  scale_fill_manual(values = assembler_type_colours) +
+  light_theme +
+  labs(title="Sequence errors (substitutions and indels)", x=NULL, y="Errors per assembly")
+
+p2 <- ggplot(df, aes(x = Assembler, y = `Total error count`, fill = assembler_type(Assembler))) +
+  geom_boxplot(coef = Inf) +
+  scale_y_continuous(trans = scales::pseudo_log_trans(base = 10), expand = c(0, 0), limits = c(0, 2000000),
+                     breaks = y_breaks, minor_breaks = y_minor_breaks, labels = y_labels) +
+  scale_x_discrete(labels = x_axis_labels) +
+  scale_fill_manual(values = assembler_type_colours) +
+  light_theme +
+  labs(title="Total errors (sequence errors + structural errors)", x=NULL, y="Errors per assembly")
+
+update_geom_defaults("boxplot", list(colour = "#262626"))
+plot_grid(p1 + light_theme_no_background, p2 + light_theme_no_background, ncol=1, rel_heights=c(0.87, 1), align="v")
+update_geom_defaults("boxplot", list(colour = "#d8d8d8"))
+plot_grid(p1 + dark_theme, p2 + dark_theme, ncol=1, rel_heights=c(0.87, 1), align="v")
+update_geom_defaults("boxplot", list(colour = "#262626"))
+```
+
+Figure S1: errors broken down by type
+```{r error_types, fig.width = 9.5, fig.height = 13}
+y_breaks <- c(0, 10, 100, 1000, 10000, 100000, 1000000)
+y_minor_breaks <- c(0:10, c(outer(2:10, 10^(1:5), `*`)))
+y_labels <- c("0", "10", "100", "1k", "10k", "100k", "1M")
+
+p1 <- ggplot(df, aes(x = Assembler, y = `Substitutions`, fill = assembler_type(Assembler))) +
+  geom_boxplot(coef = Inf) +
+  scale_y_continuous(trans = scales::pseudo_log_trans(base = 10), expand = c(0, 0), limits = c(0, 10000),
+                     breaks = y_breaks, minor_breaks = y_minor_breaks, labels = y_labels) +
+  scale_x_discrete(labels = x_axis_labels) +
+  scale_fill_manual(values = assembler_type_colours) +
+  light_theme +
+  labs(title="Substitutions", x=NULL, y="Errors per assembly")
+
+p2 <- ggplot(df, aes(x = Assembler, y = `Insertions`, fill = assembler_type(Assembler))) +
+  geom_boxplot(coef = Inf) +
+  scale_y_continuous(trans = scales::pseudo_log_trans(base = 10), expand = c(0, 0), limits = c(0, 200000),
+                     breaks = y_breaks, minor_breaks = y_minor_breaks, labels = y_labels) +
+  scale_x_discrete(labels = x_axis_labels) +
+  scale_fill_manual(values = assembler_type_colours) +
+  light_theme +
+  labs(title="Insertions", x=NULL, y="Errors per assembly")
+
+p3 <- ggplot(df, aes(x = Assembler, y = `Deletions`, fill = assembler_type(Assembler))) +
+  geom_boxplot(coef = Inf) +
+  scale_y_continuous(trans = scales::pseudo_log_trans(base = 10), expand = c(0, 0), limits = c(0, 100000),
+                     breaks = y_breaks, minor_breaks = y_minor_breaks, labels = y_labels) +
+  scale_x_discrete(labels = x_axis_labels) +
+  scale_fill_manual(values = assembler_type_colours) +
+  light_theme +
+  labs(title="Deletions", x=NULL, y="Errors per assembly")
+
+box_stats <- df %>% group_by(Assembler) %>% summarise(ymin = min(`Missing assembly bases`), lower = quantile(`Missing assembly bases`, 0.25), middle = median(`Missing assembly bases`), upper = quantile(`Missing assembly bases`, 0.75), ymax = max(`Missing assembly bases`))
+
+p4 <- ggplot(box_stats, aes(x = Assembler, fill = assembler_type(Assembler))) +
+  geom_boxplot(aes(ymin = ymin, lower = lower, middle = middle, upper = upper, ymax = ymax), stat = "identity") +
+  scale_y_continuous(trans = scales::pseudo_log_trans(base = 10), expand = c(0, 0), limits = c(0, 1000000),
+                     breaks = y_breaks, minor_breaks = y_minor_breaks, labels = y_labels) +
+  scale_x_discrete(labels = x_axis_labels) +
+  scale_fill_manual(values = assembler_type_colours) +
+  light_theme +
+  labs(title="Missing bases", x=NULL, y="Errors per assembly")
+
+box_stats <- df %>% group_by(Assembler) %>% summarise(ymin = min(`Extra assembly bases`), lower = quantile(`Extra assembly bases`, 0.25), middle = median(`Extra assembly bases`), upper = quantile(`Extra assembly bases`, 0.75), ymax = max(`Extra assembly bases`))
+
+p5 <- ggplot(box_stats, aes(x = Assembler, fill = assembler_type(Assembler))) +
+  geom_boxplot(aes(ymin = ymin, lower = lower, middle = middle, upper = upper, ymax = ymax), stat = "identity") +
+  scale_y_continuous(trans = scales::pseudo_log_trans(base = 10), expand = c(0, 0), limits = c(0, 1000000),
+                     breaks = y_breaks, minor_breaks = y_minor_breaks, labels = y_labels) +
+  scale_x_discrete(labels = x_axis_labels) +
+  scale_fill_manual(values = assembler_type_colours) +
+  light_theme +
+  labs(title="Extra bases", x=NULL, y="Errors per assembly")
+
+plot_grid(p1, p2, p3, p4, p5, rel_heights=c(0.8, 0.9, 0.9, 1, 1), ncol=1, align="v")
+```
+
+
+Figure S5: computational resources
+```{r resources, fig.width = 9.5, fig.height = 6.5}
+resources <- df
+resources$`Maximum memory (GB)` <- resources$`Maximum memory (kB)` / 1000000
+t <- as.POSIXlt(resources$`Elapsed time (h:m:s)`, tz = "UTC")
+resources$elapsed_min <- t$hour * 60 + t$min + t$sec / 60
+
+p1 <- ggplot(resources, aes(x = Assembler, y = elapsed_min, fill = assembler_type(Assembler))) +
+  geom_boxplot(coef = Inf) +
+  scale_y_continuous(trans = scales::pseudo_log_trans(base = 10), expand = c(0, 0), limits = c(0, 300), breaks = c(0, 3, 10, 30, 100, 300), minor_breaks = y_minor_breaks) +
+  scale_x_discrete(labels = x_axis_labels) +
+  scale_fill_manual(values = assembler_type_colours) +
+  light_theme +
+  labs(title="Runtime", x=NULL, y="Assembly time (minutes)")
+
+p2 <- ggplot(resources, aes(x = Assembler, y = `Maximum memory (GB)`, fill = assembler_type(Assembler))) +
+  geom_boxplot(coef = Inf) +
+  scale_y_continuous(trans = scales::pseudo_log_trans(base = 10), expand = c(0, 0), limits = c(0, 30), breaks = c(0, 3, 10, 30), minor_breaks = y_minor_breaks) +
+  scale_x_discrete(labels = x_axis_labels) +
+  scale_fill_manual(values = assembler_type_colours) +
+  light_theme +
+  labs(title="Memory", x=NULL, y="Maximum memory (GB)")
+
+update_geom_defaults("boxplot", list(colour = "#262626"))
+plot_grid(p1 + light_theme_no_background, p2 + light_theme_no_background, ncol=1, align="v")
+update_geom_defaults("boxplot", list(colour = "#d8d8d8"))
+plot_grid(p1 + dark_theme, p2 + dark_theme, ncol=1, align="v")
+update_geom_defaults("boxplot", list(colour = "#262626"))
+```
+
+
+```{r version_plot_function}
+make_version_plot <- function(sheet, tool, version_levels, fill_colour,
+                              sequence_errors_max, total_errors_max,
+                              runtime_max, memory_max,
+                              resource_breaks, resource_minor_breaks, resource_sigma) {
+  version_df <- read_excel("results.xlsx", sheet = sheet, skip = 1)
+  version_df$Version <- factor(version_df$Version, levels = version_levels)
+  version_df$`Total error count` <- version_df$`Error count` + version_df$`Extra assembly bases` + version_df$`Missing assembly bases`
+  version_df$`Maximum memory (GB)` <- version_df$`Maximum memory (kB)` / 1000000
+  t <- as.POSIXlt(version_df$`Elapsed time (h:m:s)`, tz = "UTC")
+  version_df$elapsed_min <- t$hour * 60 + t$min + t$sec / 60
+
+  sequence_errors <- ggplot(version_df, aes(x = Version, y = `Error count`)) +
+    geom_boxplot(coef = Inf, fill = fill_colour) +
+    scale_y_continuous(trans = scales::pseudo_log_trans(base = 10), expand = c(0, 0), limits = c(0, sequence_errors_max),
+                       breaks = y_breaks, minor_breaks = y_minor_breaks, labels = y_labels) +
+    light_theme +
+    labs(title = "Sequence errors", x = NULL, y = "Errors per assembly")
+
+  total_errors <- ggplot(version_df, aes(x = Version, y = `Total error count`)) +
+    geom_boxplot(coef = Inf, fill = fill_colour) +
+    scale_y_continuous(trans = scales::pseudo_log_trans(base = 10), expand = c(0, 0), limits = c(0, total_errors_max),
+                       breaks = y_breaks, minor_breaks = y_minor_breaks, labels = y_labels) +
+    light_theme +
+    labs(title = "Total errors", x = NULL, y = "Errors per assembly")
+
+  runtime <- ggplot(version_df, aes(x = Version, y = elapsed_min)) +
+    geom_boxplot(coef = Inf, fill = fill_colour) +
+    scale_y_continuous(trans = scales::pseudo_log_trans(base = 10, sigma = resource_sigma), expand = c(0, 0), limits = c(0, runtime_max),
+                       breaks = resource_breaks, minor_breaks = resource_minor_breaks) +
+    light_theme +
+    labs(title = "Runtime", x = NULL, y = "Assembly time (minutes)")
+
+  memory <- ggplot(version_df, aes(x = Version, y = `Maximum memory (GB)`)) +
+    geom_boxplot(coef = Inf, fill = fill_colour) +
+    scale_y_continuous(trans = scales::pseudo_log_trans(base = 10, sigma = resource_sigma), expand = c(0, 0), limits = c(0, memory_max),
+                       breaks = resource_breaks, minor_breaks = resource_minor_breaks) +
+    light_theme +
+    labs(title = "Memory", x = NULL, y = "Maximum memory (GB)")
+
+  title <- ggdraw() + draw_label(tool, fontface = "bold", size = 14)
+  panels <- plot_grid(sequence_errors, NULL, runtime,
+                      total_errors, NULL, memory,
+                      ncol = 3, rel_widths = c(1, 0.08, 1), align = "hv")
+  plot_grid(title, panels, ncol = 1, rel_heights = c(0.08, 1))
+}
+```
+
+```{r metamdbg_versions, fig.width = 6, fig.height = 6}
+make_version_plot("metaMDBG versions", "metaMDBG", c("v1.1", "v1.2", "v1.4"), "#8da0cb",
+                  sequence_errors_max = 20000, total_errors_max = 100000,
+                  runtime_max = 10, memory_max = 3,
+                  resource_breaks = c(0, 0.3, 1, 3, 10),
+                  resource_minor_breaks = c(0.1, c(outer(2:10, 10^(-1:2), `*`))),
+                  resource_sigma = 0.11)
+```
+
+```{r myloasm_versions, fig.width = 6, fig.height = 6}
+make_version_plot("Myloasm versions", "Myloasm", c("v0.1.0", "v0.2.0", "v0.6.0"), "#8da0cb",
+                  sequence_errors_max = 100000, total_errors_max = 200000,
+                  runtime_max = 3, memory_max = 30,
+                  resource_breaks = c(0, 0.3, 1, 3, 10, 30),
+                  resource_minor_breaks = c(0.1, c(outer(2:10, 10^(-1:2), `*`))),
+                  resource_sigma = 0.11)
+```
+
+```{r hybracter_versions, fig.width = 4.5, fig.height = 6}
+make_version_plot("Hybracter versions", "Hybracter", c("v0.11.2", "v0.14.0"), "#fc8d62",
+                  sequence_errors_max = 100, total_errors_max = 10000,
+                  runtime_max = 50, memory_max = 30,
+                  resource_breaks = c(0, 3, 10, 30, 100, 300),
+                  resource_minor_breaks = y_minor_breaks,
+                  resource_sigma = 1)
+```
